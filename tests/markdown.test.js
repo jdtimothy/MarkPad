@@ -45,4 +45,9 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown('```mermaid\ngraph TD; A-->B;\n```');
     expect(html).toContain('language-mermaid');
   });
+
+  it('preserves KaTeX MathML annotation structure', () => {
+    const html = renderMarkdown('$x^2$');
+    expect(html).toContain('<annotation encoding="application/x-tex"');
+  });
 });

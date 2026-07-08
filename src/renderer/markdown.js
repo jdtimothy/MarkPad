@@ -15,5 +15,8 @@ const md = new MarkdownIt({ html: true, linkify: true })
   });
 
 export function renderMarkdown(source) {
-  return DOMPurify.sanitize(md.render(source));
+  return DOMPurify.sanitize(md.render(source), {
+    ADD_TAGS: ['semantics', 'annotation'],
+    ADD_ATTR: ['encoding'],
+  });
 }
