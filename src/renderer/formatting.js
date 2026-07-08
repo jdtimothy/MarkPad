@@ -126,3 +126,63 @@ export function toggleList(state, type) {
     return `${n++}. ` + bare;
   });
 }
+
+// --- inserts -----------------------------------------------------------------
+
+export function insertLink({ doc, from, to }, url) {
+  const text = doc.slice(from, to) || 'link text';
+  const md = `[${text}](${url})`;
+  return {
+    doc: doc.slice(0, from) + md + doc.slice(to),
+    from: from + 1,
+    to: from + 1 + text.length,
+  };
+}
+
+export function insertImage({ doc, from, to }, url) {
+  const alt = doc.slice(from, to) || 'alt';
+  const md = `![${alt}](${url})`;
+  return {
+    doc: doc.slice(0, from) + md + doc.slice(to),
+    from: from + 2,
+    to: from + 2 + alt.length,
+  };
+}
+
+const FENCE = '```';
+
+export function insertCodeBlock({ doc, from, to }) {
+  const selected = doc.slice(from, to);
+  const atLineStart = from === 0 || doc[from - 1] === '\n';
+  const lead = atLineStart ? '' : '\n';
+  const block = `${lead}${FENCE}\n${selected}\n${FENCE}`;
+  const contentStart = from + lead.length + FENCE.length + 1;
+  return {
+    doc: doc.slice(0, from) + block + doc.slice(to),
+    from: contentStart,
+    to: contentStart + selected.length,
+  };
+}
+
+const TABLE =
+  '| Column 1 | Column 2 | Column 3 |\n' +
+  '| -------- | -------- | -------- |\n' +
+  '|          |          |          |\n';
+
+export function insertTable({ doc, from, to }) {
+  const atLineStart = from === 0 || doc[from - 1] === '\n';
+  const lead = atLineStart ? '' : '\n';
+  const insert = lead + TABLE;
+  const cursor = from + lead.length + 2; // first header cell
+  return { doc: doc.slice(0, from) + insert + doc.slice(to), from: cursor, to: cursor };
+}
+
+export function insertHorizontalRule({ doc, from, to }) {
+  // A blank line before --- is required; otherwise markdown reads the
+  // previous line + --- as a setext heading.
+  const atDocStart = from === 0;
+  const lead = atDocStart ? '' : '\n\n';
+  const insert = lead + '---\n\n';
+  const cursor = from + insert.length;
+  return { doc: doc.slice(0, from) + insert + doc.slice(to), from: cursor, to: cursor };
+}

@@ -4,6 +4,11 @@ import {
   toggleHeading,
   toggleBlockquote,
   toggleList,
+  insertLink,
+  insertImage,
+  insertCodeBlock,
+  insertTable,
+  insertHorizontalRule,
 } from '../src/renderer/formatting.js';
 
 describe('toggleInline', () => {
@@ -118,5 +123,68 @@ describe('toggleList', () => {
   it('does not treat a task list as a bullet list', () => {
     const r = toggleList({ doc: '- [ ] a', from: 0, to: 7 }, 'bullet');
     expect(r.doc).toBe('- a');
+  });
+});
+
+describe('insertLink / insertImage', () => {
+  it('uses the selection as link text', () => {
+    const r = insertLink({ doc: 'see docs', from: 4, to: 8 }, 'https://x.com');
+    expect(r.doc).toBe('see [docs](https://x.com)');
+    expect(r.from).toBe(5);
+    expect(r.to).toBe(9);
+  });
+
+  it('inserts placeholder text when selection is empty', () => {
+    const r = insertLink({ doc: '', from: 0, to: 0 }, 'https://x.com');
+    expect(r.doc).toBe('[link text](https://x.com)');
+    expect(r.from).toBe(1);
+    expect(r.to).toBe(10);
+  });
+
+  it('inserts an image with alt from selection', () => {
+    const r = insertImage({ doc: 'cat', from: 0, to: 3 }, 'cat.png');
+    expect(r.doc).toBe('![cat](cat.png)');
+  });
+});
+
+describe('insertCodeBlock', () => {
+  it('wraps the selection in a fence on its own lines', () => {
+    const r = insertCodeBlock({ doc: 'code', from: 0, to: 4 });
+    expect(r.doc).toBe('```\ncode\n```');
+  });
+
+  it('adds a leading newline when inserting mid-line', () => {
+    const r = insertCodeBlock({ doc: 'text ', from: 5, to: 5 });
+    expect(r.doc).toBe('text \n```\n\n```');
+    expect(r.from).toBe(10); // cursor on the empty line inside the fence
+    expect(r.to).toBe(10);
+  });
+});
+
+describe('insertTable', () => {
+  it('inserts a 2x3 skeleton on its own lines', () => {
+    const r = insertTable({ doc: '', from: 0, to: 0 });
+    expect(r.doc).toBe(
+      '| Column 1 | Column 2 | Column 3 |\n' +
+      '| -------- | -------- | -------- |\n' +
+      '|          |          |          |\n'
+    );
+  });
+
+  it('starts on a new line after existing text', () => {
+    const r = insertTable({ doc: 'text', from: 4, to: 4 });
+    expect(r.doc.startsWith('text\n| Column 1 |')).toBe(true);
+  });
+});
+
+describe('insertHorizontalRule', () => {
+  it('surrounds the rule with blank lines after text', () => {
+    const r = insertHorizontalRule({ doc: 'text', from: 4, to: 4 });
+    expect(r.doc).toBe('text\n\n---\n\n');
+  });
+
+  it('does not double blank lines in empty doc', () => {
+    const r = insertHorizontalRule({ doc: '', from: 0, to: 0 });
+    expect(r.doc).toBe('---\n\n');
   });
 });
