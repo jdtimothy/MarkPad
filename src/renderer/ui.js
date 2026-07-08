@@ -330,6 +330,11 @@ export function initUI(view, onRenderedChange = () => {}) {
     commandRendered('insertHTML', html);
   }
 
+  function toggleRenderedHeading(level) {
+    const heading = closestRenderedBlock(`h${level}`);
+    commandRendered('formatBlock', heading ? 'p' : `h${level}`);
+  }
+
   async function insertLink() {
     const renderedSelection = mode === 'preview' ? saveRenderedSelection() : null;
     const url = await askUrl('Link URL');
@@ -383,9 +388,9 @@ export function initUI(view, onRenderedChange = () => {}) {
   };
 
   const renderedActions = {
-    h1: () => commandRendered('formatBlock', 'h1'),
-    h2: () => commandRendered('formatBlock', 'h2'),
-    h3: () => commandRendered('formatBlock', 'h3'),
+    h1: () => toggleRenderedHeading(1),
+    h2: () => toggleRenderedHeading(2),
+    h3: () => toggleRenderedHeading(3),
     bold: () => commandRendered('bold'),
     italic: () => commandRendered('italic'),
     strike: () => commandRendered('strikeThrough'),
