@@ -1,5 +1,11 @@
 import './styles.css';
+import 'katex/dist/katex.min.css';
 import { createEditor } from './editor.js';
+import { initUI } from './ui.js';
 
-const view = createEditor(document.getElementById('editor-pane'), () => {});
+let ui;
+const view = createEditor(document.getElementById('editor-pane'), () => {
+  if (ui) ui.updateStatus();
+});
+ui = initUI(view);
 view.focus();
