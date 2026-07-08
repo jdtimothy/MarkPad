@@ -16,6 +16,7 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown('- [x] done\n- [ ] todo');
     expect(html).toContain('type="checkbox"');
     expect(html).toContain('checked');
+    expect(html).not.toContain('disabled');
   });
 
   it('renders local file images', () => {

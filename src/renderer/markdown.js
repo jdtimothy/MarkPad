@@ -7,7 +7,7 @@ import DOMPurify from 'dompurify';
 
 const md = new MarkdownIt({ html: true, linkify: true })
   .use(footnote)
-  .use(taskLists)
+  .use(taskLists, { enabled: true })
   .use(texmath, {
     engine: katex,
     delimiters: 'dollars',

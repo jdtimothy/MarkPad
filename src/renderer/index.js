@@ -10,6 +10,8 @@ let fmPanel;
 let currentPath = null;
 let currentName = 'untitled.md';
 let savedDoc = '';
+const titlebarFile = document.getElementById('titlebar-file');
+const maximizeButton = document.getElementById('window-maximize');
 
 const view = createEditor(document.getElementById('editor-pane'), () => {
   if (!ui) return;
@@ -33,7 +35,9 @@ function isDirty() {
 
 function refreshTitle() {
   if (!ui || !fmPanel) return;
-  ui.setStatusFile(currentName, isDirty());
+  const dirty = isDirty();
+  ui.setStatusFile(currentName, dirty);
+  if (titlebarFile) titlebarFile.textContent = dirty ? `${currentName} *` : currentName;
 }
 
 function markSaved(pathOrNull, name) {
@@ -99,6 +103,22 @@ async function saveAs() {
 }
 
 registerFileActions({ newFile, openFile, save, saveAs });
+
+document.getElementById('window-minimize')?.addEventListener('click', () => {
+  window.markpad.minimizeWindow();
+});
+maximizeButton?.addEventListener('click', () => {
+  window.markpad.toggleMaximizeWindow();
+});
+document.getElementById('window-close')?.addEventListener('click', () => {
+  window.markpad.closeWindow();
+});
+window.markpad.onWindowStateChanged?.(({ maximized }) => {
+  if (!maximizeButton) return;
+  maximizeButton.classList.toggle('restore', maximized);
+  maximizeButton.title = maximized ? 'Restore' : 'Maximize';
+  maximizeButton.setAttribute('aria-label', maximized ? 'Restore' : 'Maximize');
+});
 
 let closeGuardPending = false;
 window.markpad.onCloseRequested(async () => {

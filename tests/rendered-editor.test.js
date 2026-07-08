@@ -17,6 +17,13 @@ describe('htmlToMarkdown', () => {
     expect(htmlToMarkdown(root)).toBe('1. one\n  two\n2. three');
   });
 
+  it('preserves checked task list state', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<ul><li><input type="checkbox" checked> done</li><li><input type="checkbox"> todo</li></ul>';
+
+    expect(htmlToMarkdown(root)).toBe('- [x] done\n- [ ] todo');
+  });
+
   it('preserves br-created top-level lines before lists and quotes', () => {
     const root = document.createElement('div');
     root.innerHTML = 'test applecare<br>test apple<br>test applecare<ul><li>bullet</li><li>care</li><li>blu</li></ul><blockquote>happy days</blockquote>so there we are.';

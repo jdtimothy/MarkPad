@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const { pathToFileURL } = require('url');
@@ -18,14 +18,25 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1100,
     height: 800,
+    frame: false,
+    transparent: true,
     backgroundColor: '#00000000',
     backgroundMaterial: 'acrylic',
+    icon: path.join(__dirname, '..', 'renderer', 'assets', 'markpad-editor-pane.png'),
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+  Menu.setApplicationMenu(null);
+
+  function sendWindowState() {
+    win.webContents.send('window-state-changed', { maximized: win.isMaximized() });
+  }
+  win.on('maximize', sendWindowState);
+  win.on('unmaximize', sendWindowState);
+  win.on('restore', sendWindowState);
 
   // Close guard: the renderer owns dirty state. Ask it before closing;
   // it replies with 'close-confirmed' once the user has decided.
@@ -122,6 +133,21 @@ ipcMain.handle('dialog:confirmUnsaved', async (event) => {
     detail: 'Do you want to save them?',
   });
   return response;
+});
+
+ipcMain.on('window:minimize', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.minimize();
+});
+
+ipcMain.on('window:toggleMaximize', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+  if (win.isMaximized()) win.unmaximize();
+  else win.maximize();
+});
+
+ipcMain.on('window:close', (event) => {
+  BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
 app.whenReady().then(createWindow);

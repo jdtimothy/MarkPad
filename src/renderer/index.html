@@ -8,16 +8,28 @@
   <link rel="stylesheet" href="../../dist/renderer.css" />
 </head>
 <body>
+  <header id="titlebar">
+    <div class="titlebar-brand">
+      <img class="brand-mark" src="./assets/markpad-editor-pane.png" alt="" />
+      <div>
+        <div class="app-name">MarkPad</div>
+        <div id="titlebar-file">untitled.md</div>
+      </div>
+    </div>
+    <div class="titlebar-drag"></div>
+    <div class="window-controls" aria-label="Window controls">
+      <button id="window-minimize" class="window-control minimize" type="button" title="Minimize" aria-label="Minimize"></button>
+      <button id="window-maximize" class="window-control maximize" type="button" title="Maximize" aria-label="Maximize"></button>
+      <button id="window-close" class="window-control close" type="button" title="Close" aria-label="Close"></button>
+    </div>
+  </header>
+
   <div id="error-banner" class="hidden">
     <span id="error-message"></span>
     <button id="error-dismiss" title="Dismiss">&times;</button>
   </div>
 
   <header id="toolbar">
-    <div class="brand">
-      <span class="brand-mark">M</span>
-      <span>MarkPad</span>
-    </div>
     <div class="group">
       <button data-action="new" title="New (Ctrl+N)">New</button>
       <button data-action="open" title="Open (Ctrl+O)">Open</button>
@@ -36,8 +48,8 @@
       <button data-action="codeblock" title="Code block">{ }</button>
     </div>
     <div class="group">
-      <button data-action="link" title="Link (Ctrl+K)">Link</button>
-      <button data-action="image" title="Image">Img</button>
+      <button data-action="link" class="icon-button" title="Link (Ctrl+K)" aria-label="Link"><span class="toolbar-icon link-icon" aria-hidden="true"></span></button>
+      <button data-action="image" class="icon-button" title="Image" aria-label="Image"><span class="toolbar-icon image-icon" aria-hidden="true"></span></button>
     </div>
     <div class="group">
       <button data-action="quote" title="Blockquote">&quot;</button>
@@ -46,7 +58,7 @@
       <button data-action="task" title="Task list">[ ]</button>
     </div>
     <div class="group">
-      <button data-action="table" title="Table">Tbl</button>
+      <button data-action="table" class="icon-button" title="Table" aria-label="Table"><span class="toolbar-icon table-icon" aria-hidden="true"></span></button>
       <button data-action="hr" title="Horizontal rule">---</button>
     </div>
     <div class="spacer"></div>

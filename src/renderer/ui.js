@@ -273,6 +273,9 @@ export function initUI(view, onRenderedChange = () => {}) {
   modePreview.addEventListener('click', () => setMode('preview'));
 
   previewPane.addEventListener('input', syncFromRendered);
+  previewPane.addEventListener('change', (e) => {
+    if (e.target?.matches?.('input[type="checkbox"]')) syncFromRendered();
+  });
   previewPane.addEventListener('blur', () => {
     syncFromRendered();
     updateToolbarState();
