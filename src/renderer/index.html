@@ -3,17 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;" />
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: file:; font-src 'self' data:;" />
   <title>MarkPad</title>
   <link rel="stylesheet" href="../../dist/renderer.css" />
 </head>
 <body>
   <div id="error-banner" class="hidden">
     <span id="error-message"></span>
-    <button id="error-dismiss" title="Dismiss">✕</button>
+    <button id="error-dismiss" title="Dismiss">&times;</button>
   </div>
 
   <header id="toolbar">
+    <div class="brand">
+      <span class="brand-mark">M</span>
+      <span>MarkPad</span>
+    </div>
     <div class="group">
       <button data-action="new" title="New (Ctrl+N)">New</button>
       <button data-action="open" title="Open (Ctrl+O)">Open</button>
@@ -32,31 +36,31 @@
       <button data-action="codeblock" title="Code block">{ }</button>
     </div>
     <div class="group">
-      <button data-action="link" title="Link (Ctrl+K)">🔗</button>
-      <button data-action="image" title="Image">🖼</button>
+      <button data-action="link" title="Link (Ctrl+K)">Link</button>
+      <button data-action="image" title="Image">Img</button>
     </div>
     <div class="group">
-      <button data-action="quote" title="Blockquote">❝</button>
-      <button data-action="bullet" title="Bullet list">•</button>
+      <button data-action="quote" title="Blockquote">&quot;</button>
+      <button data-action="bullet" title="Bullet list">&bull;</button>
       <button data-action="ordered" title="Numbered list">1.</button>
-      <button data-action="task" title="Task list">☑</button>
+      <button data-action="task" title="Task list">[ ]</button>
     </div>
     <div class="group">
-      <button data-action="table" title="Table">⊞</button>
-      <button data-action="hr" title="Horizontal rule">―</button>
+      <button data-action="table" title="Table">Tbl</button>
+      <button data-action="hr" title="Horizontal rule">---</button>
     </div>
     <div class="spacer"></div>
     <div class="group" id="mode-toggle">
-      <button id="mode-edit" class="active" title="Edit (Ctrl+E)">Edit</button>
-      <button id="mode-preview" title="Preview (Ctrl+E)">Preview</button>
+      <button id="mode-edit" title="Code view (Ctrl+E)">Code</button>
+      <button id="mode-preview" class="active" title="Rendered editing (Ctrl+E)">Rendered</button>
     </div>
   </header>
 
   <section id="fm-panel"></section>
 
   <main id="content">
-    <div id="editor-pane"></div>
-    <div id="preview-pane" class="hidden"></div>
+    <div id="editor-pane" class="hidden"></div>
+    <div id="preview-pane" contenteditable="true" spellcheck="true"></div>
   </main>
 
   <footer id="status-bar">

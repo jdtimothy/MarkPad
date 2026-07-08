@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
+const { pathToFileURL } = require('url');
 
 const FILE_FILTERS = [
   { name: 'Markdown', extensions: ['md', 'markdown'] },
@@ -8,10 +9,17 @@ const FILE_FILTERS = [
   { name: 'All Files', extensions: ['*'] },
 ];
 
+const IMAGE_FILTERS = [
+  { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'] },
+  { name: 'All Files', extensions: ['*'] },
+];
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100,
     height: 800,
+    backgroundColor: '#00000000',
+    backgroundMaterial: 'acrylic',
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
@@ -62,6 +70,21 @@ ipcMain.handle('dialog:open', async (event) => {
   } catch (err) {
     return { error: err.message };
   }
+});
+
+ipcMain.handle('dialog:openImage', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(parent, {
+    filters: IMAGE_FILTERS,
+    properties: ['openFile'],
+  });
+  if (canceled || filePaths.length === 0) return null;
+  const filePath = filePaths[0];
+  return {
+    path: filePath,
+    name: path.basename(filePath),
+    url: pathToFileURL(filePath).href,
+  };
 });
 
 ipcMain.handle('file:save', async (_event, filePath, content) => {

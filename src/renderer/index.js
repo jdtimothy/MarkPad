@@ -16,13 +16,14 @@ const view = createEditor(document.getElementById('editor-pane'), () => {
   ui.updateStatus();
   refreshTitle();
 });
-ui = initUI(view);
+ui = initUI(view, () => refreshTitle());
 fmPanel = createFrontmatterPanel(document.getElementById('fm-panel'), () =>
   refreshTitle()
 );
 
 // The document on disk = frontmatter block (panel) + body (editor).
 function fullDoc() {
+  ui?.syncFromRendered();
   return joinDoc(fmPanel.getFrontmatter(), getDoc(view));
 }
 
@@ -55,8 +56,8 @@ async function newFile() {
   if (!(await guardDirty())) return;
   fmPanel.setFrontmatter(null);
   setDoc(view, '');
+  await ui.refreshRendered();
   markSaved(null, 'untitled.md');
-  view.focus();
 }
 
 async function openFile() {
@@ -71,8 +72,8 @@ async function openFile() {
   const { fm, body } = splitFrontmatter(normalized);
   fmPanel.setFrontmatter(fm);
   setDoc(view, body);
+  await ui.refreshRendered();
   markSaved(result.path, result.name);
-  view.focus();
 }
 
 async function save() {

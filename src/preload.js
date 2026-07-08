@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('markpad', {
   openFile: () => ipcRenderer.invoke('dialog:open'),
+  openImage: () => ipcRenderer.invoke('dialog:openImage'),
   saveFile: (path, content) => ipcRenderer.invoke('file:save', path, content),
   saveFileAs: (content) => ipcRenderer.invoke('dialog:saveAs', content),
   confirmUnsaved: () => ipcRenderer.invoke('dialog:confirmUnsaved'),

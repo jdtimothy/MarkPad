@@ -4,7 +4,7 @@
   "description": "A small markdown editor with a formatting toolbar and live preview",
   "main": "src/main/main.js",
   "scripts": {
-    "build": "esbuild src/renderer/index.js --bundle --outdir=dist --entry-names=renderer --format=iife --loader:.woff=file --loader:.woff2=file --loader:.ttf=file --asset-names=assets/[name]-[hash]",
+    "build": "esbuild ./src/renderer/index.js --bundle --outdir=dist --entry-names=renderer --format=iife --loader:.woff=file --loader:.woff2=file --loader:.ttf=file --asset-names=assets/[name]-[hash]",
     "start": "npm run build && electron .",
     "test": "vitest run"
   },

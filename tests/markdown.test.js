@@ -18,6 +18,12 @@ describe('renderMarkdown', () => {
     expect(html).toContain('checked');
   });
 
+  it('renders local file images', () => {
+    const html = renderMarkdown('![alt](file:///C:/Users/joshu/Downloads/IMA56EMMUKhw4.png)');
+    expect(html).toContain('<img');
+    expect(html).toContain('src="file:///C:/Users/joshu/Downloads/IMA56EMMUKhw4.png"');
+  });
+
   it('autolinks bare URLs', () => {
     expect(renderMarkdown('see https://example.com today')).toContain('<a href="https://example.com"');
   });
