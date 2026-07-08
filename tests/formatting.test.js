@@ -159,6 +159,11 @@ describe('insertCodeBlock', () => {
     expect(r.from).toBe(10); // cursor on the empty line inside the fence
     expect(r.to).toBe(10);
   });
+
+  it('keeps the closing fence on its own line when text follows', () => {
+    const r = insertCodeBlock({ doc: 'before after', from: 6, to: 6 });
+    expect(r.doc).toBe('before\n```\n\n```\n after');
+  });
 });
 
 describe('insertTable', () => {

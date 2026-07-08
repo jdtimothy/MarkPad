@@ -155,7 +155,9 @@ export function insertCodeBlock({ doc, from, to }) {
   const selected = doc.slice(from, to);
   const atLineStart = from === 0 || doc[from - 1] === '\n';
   const lead = atLineStart ? '' : '\n';
-  const block = `${lead}${FENCE}\n${selected}\n${FENCE}`;
+  const atLineEnd = to === doc.length || doc[to] === '\n';
+  const trail = atLineEnd ? '' : '\n';
+  const block = `${lead}${FENCE}\n${selected}\n${FENCE}${trail}`;
   const contentStart = from + lead.length + FENCE.length + 1;
   return {
     doc: doc.slice(0, from) + block + doc.slice(to),
