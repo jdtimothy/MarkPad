@@ -38,3 +38,91 @@ export function toggleInline({ doc, from, to }, marker) {
     to: to + len,
   };
 }
+
+// --- line helpers -----------------------------------------------------------
+
+function lineRange(doc, from, to) {
+  const start = doc.lastIndexOf('\n', from - 1) + 1;
+  let end = doc.indexOf('\n', to);
+  if (end === -1) end = doc.length;
+  return { start, end };
+}
+
+// Map a position through a list of prefix edits [{ at, delta }] (ascending).
+// A position inside a removed prefix clamps to the edit point.
+function mapPos(pos, edits) {
+  let mapped = pos;
+  for (const { at, delta } of edits) {
+    if (pos > at) mapped += Math.max(delta, at - pos);
+  }
+  return mapped;
+}
+
+// Transform each selected line with `fn(line) -> newLine`, rebuild the doc,
+// and map the selection through the edits.
+function transformLines({ doc, from, to }, fn) {
+  const { start, end } = lineRange(doc, from, to);
+  const lines = doc.slice(start, end).split('\n');
+  const edits = [];
+  let lineStart = start;
+  const newLines = lines.map((line) => {
+    const newLine = fn(line);
+    if (newLine.length !== line.length) {
+      edits.push({ at: lineStart, delta: newLine.length - line.length });
+    }
+    lineStart += line.length + 1;
+    return newLine;
+  });
+  const newDoc = doc.slice(0, start) + newLines.join('\n') + doc.slice(end);
+  return { doc: newDoc, from: mapPos(from, edits), to: mapPos(to, edits) };
+}
+
+// --- block styles ------------------------------------------------------------
+
+const HEADING_RE = /^(#{1,6}) /;
+
+export function toggleHeading(state, level) {
+  const prefix = '#'.repeat(level) + ' ';
+  return transformLines(state, (line) => {
+    const m = line.match(HEADING_RE);
+    if (m && m[1].length === level) return line.slice(m[0].length);
+    if (m) return prefix + line.slice(m[0].length);
+    return prefix + line;
+  });
+}
+
+export function toggleBlockquote(state) {
+  const { doc, from, to } = state;
+  const { start, end } = lineRange(doc, from, to);
+  const lines = doc.slice(start, end).split('\n');
+  const allQuoted = lines.every((l) => l === '' || l.startsWith('> '));
+  return transformLines(state, (line) => {
+    if (line === '') return line;
+    return allQuoted ? line.slice(2) : '> ' + line;
+  });
+}
+
+const LIST_PATTERNS = {
+  task: /^- \[[ xX]\] /,
+  bullet: /^- (?!\[[ xX]\] )/,
+  ordered: /^\d+\. /,
+};
+const ANY_LIST_RE = /^(?:- \[[ xX]\] |- |\d+\. )/;
+
+export function toggleList(state, type) {
+  const { doc, from, to } = state;
+  const { start, end } = lineRange(doc, from, to);
+  const lines = doc.slice(start, end).split('\n');
+  const pattern = LIST_PATTERNS[type];
+  const nonEmpty = lines.filter((l) => l !== '');
+  const allMarked = nonEmpty.length > 0 && nonEmpty.every((l) => pattern.test(l));
+  let n = 1;
+  return transformLines(state, (line) => {
+    if (line === '') return line;
+    if (allMarked) return line.replace(pattern, '');
+    const bare = line.replace(ANY_LIST_RE, '');
+    if (type === 'bullet') return '- ' + bare;
+    if (type === 'task') return '- [ ] ' + bare;
+    return `${n++}. ` + bare;
+  });
+}
