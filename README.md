@@ -18,7 +18,9 @@ toolbar, a collapsible frontmatter panel, and an Edit/Preview toggle.
   image, blockquote, bullet/numbered/task lists, table, horizontal rule
 - `Ctrl+E` toggles between the markdown source and a rendered preview
 - Frontmatter: YAML at the top of a file appears in a collapsible key-value
-  panel above the editor; unknown YAML lines are preserved verbatim
+  panel above the editor; unknown YAML lines are preserved verbatim. Saving
+  normalizes key-value spacing and the blank line after the frontmatter
+  block, while unknown/nested lines are still preserved verbatim.
 - Preview renders GFM plus footnotes, KaTeX math (`$x^2$`), and Mermaid
   diagrams (```` ```mermaid ```` blocks)
 - Unsaved-changes guard on New / Open / close

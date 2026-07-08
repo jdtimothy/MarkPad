@@ -50,4 +50,14 @@ describe('renderMarkdown', () => {
     const html = renderMarkdown('$x^2$');
     expect(html).toContain('<annotation encoding="application/x-tex"');
   });
+
+  it('strips javascript: URLs from links', () => {
+    const html = renderMarkdown('[click](javascript:alert(1))');
+    expect(html).not.toContain('href="javascript:');
+  });
+
+  it('strips iframe tags', () => {
+    const html = renderMarkdown('<iframe src="https://evil.example"></iframe>');
+    expect(html).not.toContain('<iframe');
+  });
 });
