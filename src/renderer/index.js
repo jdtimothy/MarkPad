@@ -1,3 +1,5 @@
 import './styles.css';
+import { createEditor } from './editor.js';
 
-console.log('MarkPad renderer loaded');
+const view = createEditor(document.getElementById('editor-pane'), () => {});
+view.focus();

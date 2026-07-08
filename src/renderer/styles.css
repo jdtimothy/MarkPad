@@ -11,3 +11,16 @@ body {
   color: var(--fg);
   background: var(--bg);
 }
+
+#editor-pane {
+  height: 100vh;
+}
+
+.cm-editor {
+  height: 100%;
+  font-size: 15px;
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
