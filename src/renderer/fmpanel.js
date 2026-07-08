@@ -114,7 +114,7 @@ export function createFrontmatterPanel(root, onChange) {
       render();
     },
     getFrontmatter() {
-      if (rows === null) return null;
+      if (rows === null || rows.length === 0) return null;
       return serializeFrontmatter(rows);
     },
   };
