@@ -107,6 +107,9 @@ export function initUI(view) {
   window.addEventListener('keydown', (e) => {
     if (!e.ctrlKey || e.altKey) return;
     const key = e.key.toLowerCase();
+    // b/i/k mutate or target the (hidden) editor, so they only make sense
+    // in Edit mode; e/n/o/s stay available in Preview.
+    if (mode !== 'edit' && (key === 'b' || key === 'i' || key === 'k')) return;
     const shortcuts = {
       b: actions.bold,
       i: actions.italic,

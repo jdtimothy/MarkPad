@@ -99,8 +99,15 @@ async function saveAs() {
 
 registerFileActions({ newFile, openFile, save, saveAs });
 
+let closeGuardPending = false;
 window.markpad.onCloseRequested(async () => {
-  if (await guardDirty()) window.markpad.confirmClose();
+  if (closeGuardPending) return;
+  closeGuardPending = true;
+  try {
+    if (await guardDirty()) window.markpad.confirmClose();
+  } finally {
+    closeGuardPending = false;
+  }
 });
 
 refreshTitle();

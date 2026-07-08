@@ -83,6 +83,7 @@ export function createFrontmatterPanel(root, onChange) {
         del.title = 'Remove property';
         del.addEventListener('click', () => {
           rows.splice(i, 1);
+          if (rows.length === 0) rows = null;
           render();
           onChange();
         });

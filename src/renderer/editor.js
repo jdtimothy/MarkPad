@@ -1,19 +1,25 @@
 import { EditorView } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import { basicSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 
+// Extensions are stateless/reusable across documents, so we keep them keyed
+// by view to rebuild a fresh EditorState (and thus a fresh undo history) in
+// setDoc without duplicating the extension list.
+const extensionsByView = new WeakMap();
+
 export function createEditor(parent, onChange) {
-  return new EditorView({
-    parent,
-    extensions: [
-      basicSetup,
-      markdown({ base: markdownLanguage }),
-      EditorView.lineWrapping,
-      EditorView.updateListener.of((update) => {
-        if (update.docChanged || update.selectionSet) onChange();
-      }),
-    ],
-  });
+  const extensions = [
+    basicSetup,
+    markdown({ base: markdownLanguage }),
+    EditorView.lineWrapping,
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged || update.selectionSet) onChange();
+    }),
+  ];
+  const view = new EditorView({ parent, extensions });
+  extensionsByView.set(view, extensions);
+  return view;
 }
 
 export function applyFormat(view, fn, ...args) {
@@ -32,8 +38,6 @@ export function getDoc(view) {
 }
 
 export function setDoc(view, text) {
-  view.dispatch({
-    changes: { from: 0, to: view.state.doc.length, insert: text },
-    selection: { anchor: 0 },
-  });
+  const extensions = extensionsByView.get(view) || [];
+  view.setState(EditorState.create({ doc: text, extensions }));
 }
