@@ -18,6 +18,7 @@ a toggle between the raw markdown code view and a rendered live preview.
 | View model | Toggle between code view and rendered preview (`Ctrl+E`) |
 | Toolbar scope | Full standard GFM set |
 | Extensions | GFM-only toolbar; preview additionally renders footnotes, math (KaTeX), and Mermaid diagrams |
+| Frontmatter | Collapsible key-value panel between toolbar and editor owns the YAML block |
 | Out of scope | Tabs, folder sidebar, slideshows, collages/image grids, callouts toolbar buttons |
 
 ## Architecture
@@ -48,6 +49,8 @@ Electron app with the standard secure two-layer split:
 │ New  Open  Save │ H1 H2 H3 │ B I S `code` │ 🔗 🖼 │
 │ ❝ • 1. ☑ │ ⊞ table ─ hr │       [ Edit | Preview ]│
 ├──────────────────────────────────────────────────┤
+│ ▸ Frontmatter (3)                         Remove  │
+├──────────────────────────────────────────────────┤
 │                                                  │
 │     Editor (code view)  ⇄  Rendered preview      │
 │                                                  │
@@ -62,6 +65,8 @@ Electron app with the standard secure two-layer split:
   2×3 skeleton), horizontal rule.
 - **Edit/Preview toggle** at top right; keyboard shortcut `Ctrl+E`. One
   content area switches between the two modes.
+- **Frontmatter panel:** collapsible strip between the toolbar and the
+  content area, visible in both Edit and Preview modes (see Behavior).
 - **Status bar:** file name, unsaved-changes dot, word count, cursor line.
 
 ## Behavior
@@ -90,6 +95,25 @@ Electron app with the standard secure two-layer split:
   the rest of the document still renders.
 - All output passes through DOMPurify before insertion into the DOM.
 
+### Frontmatter panel
+
+- When a document starts with a `---` YAML block, the app strips it from the
+  editor: editor, preview, and word count only ever see the body. The panel
+  owns the block and shows it as key + value field rows, each with a remove
+  button, plus "+ Add property" and "Remove frontmatter" actions. On save the
+  panel is serialized back to YAML and prepended to the body.
+- Values are plain text scalars, so list syntax like `tags: [notes, ideas]`
+  is typed into the value field. Any line that is not a simple `key: value`
+  pair (nested YAML, comments) appears as a read-only row and is written back
+  verbatim — the app never destroys frontmatter it does not understand. No
+  YAML library; a flat line-based parser is sufficient.
+- When a file has no frontmatter the panel collapses to a slim
+  "+ Add frontmatter" bar; clicking it inserts a starter template (`title`,
+  `date` pre-filled with today, `tags: []`) and expands the panel.
+- The panel opens collapsed for existing files and expanded when just
+  created. Header shows `▸ Frontmatter (n)` with a chevron toggle. Panel
+  edits count toward the unsaved-changes indicator.
+
 ### File handling
 - New / Open / Save / Save As via native dialogs, filtered to
   `.md` / `.markdown` / `.txt`.
@@ -110,10 +134,13 @@ Electron app with the standard secure two-layer split:
 
 - **Unit tests (Vitest):** the formatting engine — wrap/unwrap/toggle logic
   for every toolbar action, including edge cases (empty selection, partial
-  overlap with existing markers, multi-line selections for block styles).
+  overlap with existing markers, multi-line selections for block styles) —
+  and the frontmatter module (split/join round trips, unparseable-line
+  preservation).
 - **Manual smoke checklist:** file open/save/save-as round trip, unsaved
   changes prompts, Edit/Preview toggle preserving state, math/Mermaid/footnote
-  rendering.
+  rendering, frontmatter round trip (open a file with frontmatter → edit in
+  panel → save → block written back; nested YAML preserved).
 
 ## Module Boundaries
 
@@ -123,5 +150,7 @@ Electron app with the standard secure two-layer split:
 | `preload` | IPC bridge exposing `openFile`, `saveFile`, `saveFileAs`, dirty-state notifications |
 | `renderer/editor` | CodeMirror setup and state |
 | `renderer/formatting` | Pure functions implementing every toolbar action against an editor state (unit-tested) |
+| `renderer/frontmatter` | Pure functions: split/join doc, parse/serialize flat key-value YAML (unit-tested) |
+| `renderer/fmpanel` | Frontmatter panel DOM component: rows, collapse, add/remove |
 | `renderer/preview` | markdown-it pipeline + KaTeX + Mermaid + DOMPurify |
 | `renderer/ui` | Toolbar wiring, view toggle, status bar, error banner |

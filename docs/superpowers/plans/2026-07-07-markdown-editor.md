@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A Windows Electron desktop app for editing one markdown file at a time, with a GFM formatting toolbar and an Edit/Preview toggle.
+**Goal:** A Windows Electron desktop app for editing one markdown file at a time, with a GFM formatting toolbar, a collapsible frontmatter panel, and an Edit/Preview toggle.
 
-**Architecture:** Electron main process owns the window, native dialogs, and file I/O; the renderer is plain HTML/CSS/JS bundled with esbuild. Formatting logic is a set of pure functions (unit-tested, CodeMirror-independent) applied to the editor through a thin adapter. Preview is a markdown-it pipeline sanitized with DOMPurify, with Mermaid rendered post-sanitize.
+**Architecture:** Electron main process owns the window, native dialogs, and file I/O; the renderer is plain HTML/CSS/JS bundled with esbuild. Formatting and frontmatter logic are pure functions (unit-tested, CodeMirror-independent) applied through thin adapters. The frontmatter panel owns the YAML block — the editor and preview only ever see the document body. Preview is a markdown-it pipeline sanitized with DOMPurify, with Mermaid rendered post-sanitize.
 
 **Tech Stack:** Electron, esbuild, CodeMirror 6, markdown-it (+ footnote, task-lists, texmath/KaTeX plugins), Mermaid, DOMPurify, Vitest.
 
@@ -16,9 +16,10 @@
 - Renderer is plain HTML/CSS/JavaScript — no UI framework.
 - Toolbar inserts portable GFM syntax only. Preview additionally renders footnotes, `$math$` (KaTeX), and ` ```mermaid ` blocks.
 - All preview HTML passes through DOMPurify before DOM insertion.
-- Files are read/written UTF-8; dialogs filter `.md` / `.markdown` / `.txt`.
+- Files are read/written UTF-8; dialogs filter `.md` / `.markdown` / `.txt`. Line endings are normalized CRLF→LF on open.
+- Frontmatter is stripped from the editor; the panel owns it. Lines that are not flat `key: value` pairs are preserved verbatim — never destroyed. No YAML library.
 - Editor content is never discarded on a failed save; file errors show a dismissible banner.
-- `window.prompt()` does NOT exist in Electron renderers — URL entry must use the HTML `<dialog>` element (Task 7 provides it).
+- `window.prompt()` does NOT exist in Electron renderers — URL entry must use the HTML `<dialog>` element (Task 8 provides it).
 - Formatting functions operate on a plain state object `{ doc: string, from: number, to: number }` and return the same shape. They never touch CodeMirror.
 
 ## File Structure
@@ -30,16 +31,19 @@ src/
   main/main.js          Electron main: window, dialogs, file I/O, close guard
   preload.js            IPC bridge (window.markpad)
   renderer/
-    index.html          Layout: toolbar, editor/preview area, status bar
+    index.html          Layout: toolbar, frontmatter panel, editor/preview area, status bar
     styles.css          All styling
-    index.js            Entry point: wires modules, imports CSS
+    index.js            Entry point: wires modules, file state, imports CSS
     editor.js           CodeMirror setup + applyFormat adapter
     formatting.js       Pure formatting functions (unit-tested)
+    frontmatter.js      Pure frontmatter split/parse/serialize/join (unit-tested)
+    fmpanel.js          Frontmatter panel DOM component
     markdown.js         markdown-it pipeline + DOMPurify (unit-tested)
     preview.js          renderPreview: markdown.js output + Mermaid into a container
-    ui.js               Toolbar wiring, view toggle, status bar, dialogs, file actions, error banner
+    ui.js               Toolbar wiring, view toggle, status bar, dialogs, error banner
 tests/
   formatting.test.js
+  frontmatter.test.js
   markdown.test.js
 docs/superpowers/       (specs & plans, already present)
 ```
@@ -112,7 +116,7 @@ app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());
 ```
 
-- [ ] **Step 5: Create src/preload.js (empty bridge, filled in Task 8)**
+- [ ] **Step 5: Create src/preload.js (empty bridge, filled in Task 10)**
 
 ```js
 const { contextBridge } = require('electron');
@@ -120,7 +124,7 @@ const { contextBridge } = require('electron');
 contextBridge.exposeInMainWorld('markpad', {});
 ```
 
-- [ ] **Step 6: Create src/renderer/index.html (placeholder body, replaced in Task 7)**
+- [ ] **Step 6: Create src/renderer/index.html (placeholder body, replaced in Task 8)**
 
 ```html
 <!DOCTYPE html>
@@ -688,14 +692,191 @@ git commit -m "feat: insert actions (link, image, code block, table, hr)"
 
 ---
 
-### Task 5: Markdown render pipeline (TDD)
+### Task 5: Frontmatter core functions (TDD)
+
+**Files:**
+- Create: `src/renderer/frontmatter.js`, `tests/frontmatter.test.js`
+
+**Interfaces:**
+- Consumes: nothing
+- Produces (all pure, no DOM, no YAML library):
+  - `splitFrontmatter(doc: string) -> { fm: string | null, body: string }` — `fm` is the raw text between the `---` fences (fences excluded), `null` when the doc has no frontmatter. One blank separator line after the closing fence is absorbed.
+  - `parseFrontmatter(fm: string) -> Array<{ key, value } | { raw }>` — flat `key: value` lines become `{ key, value }`; anything else (nested YAML, comments) becomes `{ raw: line }`, order preserved. Blank lines are dropped.
+  - `serializeFrontmatter(rows) -> string` — inverse of parse; `{ raw }` rows are emitted verbatim.
+  - `joinDoc(fm: string | null, body: string) -> string` — `null` returns the body unchanged; otherwise `---\n{fm}\n---\n\n{body}`.
+  - `defaultFrontmatter(today: string) -> rows` — starter template: `title` (empty), `date` (the passed string), `tags` (`[]`).
+
+- [ ] **Step 1: Write failing tests**
+
+`tests/frontmatter.test.js`:
+```js
+import { describe, it, expect } from 'vitest';
+import {
+  splitFrontmatter,
+  parseFrontmatter,
+  serializeFrontmatter,
+  joinDoc,
+  defaultFrontmatter,
+} from '../src/renderer/frontmatter.js';
+
+describe('splitFrontmatter', () => {
+  it('returns null fm when the doc has none', () => {
+    expect(splitFrontmatter('# hi')).toEqual({ fm: null, body: '# hi' });
+  });
+
+  it('splits fm and body', () => {
+    expect(splitFrontmatter('---\ntitle: x\n---\n\n# hi')).toEqual({
+      fm: 'title: x',
+      body: '# hi',
+    });
+  });
+
+  it('treats an unclosed fence as plain body', () => {
+    expect(splitFrontmatter('---\ntitle: x')).toEqual({
+      fm: null,
+      body: '---\ntitle: x',
+    });
+  });
+
+  it('does not require a blank line after the block', () => {
+    expect(splitFrontmatter('---\na: 1\n---\nbody')).toEqual({
+      fm: 'a: 1',
+      body: 'body',
+    });
+  });
+});
+
+describe('parseFrontmatter', () => {
+  it('parses flat key-value pairs', () => {
+    expect(parseFrontmatter('title: x\ndate: 2026-07-07')).toEqual([
+      { key: 'title', value: 'x' },
+      { key: 'date', value: '2026-07-07' },
+    ]);
+  });
+
+  it('preserves non-pair lines as raw rows in order', () => {
+    expect(parseFrontmatter('tags:\n  - a\n# comment')).toEqual([
+      { key: 'tags', value: '' },
+      { raw: '  - a' },
+      { raw: '# comment' },
+    ]);
+  });
+});
+
+describe('serializeFrontmatter', () => {
+  it('round-trips parse -> serialize including raw rows', () => {
+    const src = 'title: x\ntags:\n  - a';
+    expect(serializeFrontmatter(parseFrontmatter(src))).toBe(src);
+  });
+});
+
+describe('joinDoc', () => {
+  it('returns the body alone when fm is null', () => {
+    expect(joinDoc(null, '# hi')).toBe('# hi');
+  });
+
+  it('joins with fences and a blank separator line', () => {
+    expect(joinDoc('a: 1', 'body')).toBe('---\na: 1\n---\n\nbody');
+  });
+
+  it('split(join(fm, body)) round-trips', () => {
+    expect(splitFrontmatter(joinDoc('a: 1', 'body'))).toEqual({
+      fm: 'a: 1',
+      body: 'body',
+    });
+  });
+});
+
+describe('defaultFrontmatter', () => {
+  it('provides a title/date/tags template', () => {
+    expect(defaultFrontmatter('2026-07-07')).toEqual([
+      { key: 'title', value: '' },
+      { key: 'date', value: '2026-07-07' },
+      { key: 'tags', value: '[]' },
+    ]);
+  });
+});
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `npx vitest run tests/frontmatter.test.js`
+Expected: FAIL — cannot resolve `../src/renderer/frontmatter.js`.
+
+- [ ] **Step 3: Implement the module**
+
+`src/renderer/frontmatter.js`:
+```js
+// Pure frontmatter handling. Flat `key: value` pairs only; anything else is
+// preserved verbatim as a { raw } row so unknown YAML is never destroyed.
+// No YAML library by design (see spec).
+
+export function splitFrontmatter(doc) {
+  const lines = doc.split('\n');
+  if (lines[0] !== '---') return { fm: null, body: doc };
+  const endIdx = lines.indexOf('---', 1);
+  if (endIdx === -1) return { fm: null, body: doc };
+  const fm = lines.slice(1, endIdx).join('\n');
+  let body = lines.slice(endIdx + 1).join('\n');
+  if (body.startsWith('\n')) body = body.slice(1); // absorb one separator line
+  return { fm, body };
+}
+
+const PAIR_RE = /^([A-Za-z0-9_-]+):\s?(.*)$/;
+
+export function parseFrontmatter(fm) {
+  if (!fm) return [];
+  return fm
+    .split('\n')
+    .filter((line) => line.trim() !== '')
+    .map((line) => {
+      const m = line.match(PAIR_RE);
+      return m ? { key: m[1], value: m[2] } : { raw: line };
+    });
+}
+
+export function serializeFrontmatter(rows) {
+  return rows
+    .map((r) => (r.raw !== undefined ? r.raw : `${r.key}: ${r.value}`.trimEnd()))
+    .join('\n');
+}
+
+export function joinDoc(fm, body) {
+  if (fm === null) return body;
+  return `---\n${fm}\n---\n\n${body}`;
+}
+
+export function defaultFrontmatter(today) {
+  return [
+    { key: 'title', value: '' },
+    { key: 'date', value: today },
+    { key: 'tags', value: '[]' },
+  ];
+}
+```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `npx vitest run tests/frontmatter.test.js`
+Expected: all 10 tests PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src/renderer/frontmatter.js tests/frontmatter.test.js
+git commit -m "feat: frontmatter split/parse/serialize/join core"
+```
+
+---
+
+### Task 6: Markdown render pipeline (TDD)
 
 **Files:**
 - Create: `src/renderer/markdown.js`, `tests/markdown.test.js`
 
 **Interfaces:**
 - Consumes: nothing from earlier tasks
-- Produces: `renderMarkdown(source: string) -> string` — sanitized HTML implementing GFM (tables, task lists, strikethrough, autolinks) plus footnotes and KaTeX math. Mermaid blocks come through as `<pre><code class="language-mermaid">` for Task 7 to render. This module must NOT import mermaid or any CSS (it runs under jsdom in tests).
+- Produces: `renderMarkdown(source: string) -> string` — sanitized HTML implementing GFM (tables, task lists, strikethrough, autolinks) plus footnotes and KaTeX math. Mermaid blocks come through as `<pre><code class="language-mermaid">` for Task 8 to render. This module must NOT import mermaid or any CSS (it runs under jsdom in tests).
 
 - [ ] **Step 1: Write failing tests**
 
@@ -789,7 +970,7 @@ Expected: all 9 tests PASS.
 - [ ] **Step 5: Run the whole suite and commit**
 
 Run: `npm test`
-Expected: formatting + markdown suites both PASS.
+Expected: formatting + frontmatter + markdown suites all PASS.
 
 ```bash
 git add src/renderer/markdown.js tests/markdown.test.js
@@ -798,7 +979,7 @@ git commit -m "feat: markdown-it pipeline with GFM, footnotes, KaTeX, DOMPurify"
 
 ---
 
-### Task 6: Editor pane (CodeMirror)
+### Task 7: Editor pane (CodeMirror)
 
 **Files:**
 - Create: `src/renderer/editor.js`
@@ -809,7 +990,7 @@ git commit -m "feat: markdown-it pipeline with GFM, footnotes, KaTeX, DOMPurify"
 - Produces:
   - `createEditor(parent: HTMLElement, onChange: () => void) -> EditorView` — CodeMirror 6 with markdown highlighting, line wrapping, undo history; `onChange` fires on doc or selection change
   - `applyFormat(view, fn, ...args)` — reads `{ doc, from, to }`, calls `fn(state, ...args)`, dispatches one transaction (undo-friendly), refocuses the editor
-  - `getDoc(view) -> string`, `setDoc(view, text)` — used by file actions in Task 8
+  - `getDoc(view) -> string`, `setDoc(view, text)` — used by file actions in Task 10
 
 - [ ] **Step 1: Create src/renderer/editor.js**
 
@@ -904,17 +1085,17 @@ git commit -m "feat: CodeMirror markdown editor pane"
 
 ---
 
-### Task 7: Toolbar, view toggle, preview, status bar
+### Task 8: Toolbar, view toggle, preview, status bar
 
 **Files:**
 - Create: `src/renderer/preview.js`, `src/renderer/ui.js`
 - Modify: `src/renderer/index.html`, `src/renderer/styles.css`, `src/renderer/index.js`
 
 **Interfaces:**
-- Consumes: `createEditor` / `applyFormat` / `getDoc` (Task 6), all formatting functions (Tasks 2–4), `renderMarkdown` (Task 5)
+- Consumes: `createEditor` / `applyFormat` / `getDoc` (Task 7), all formatting functions (Tasks 2–4), `renderMarkdown` (Task 6)
 - Produces:
   - `renderPreview(container: HTMLElement, source: string) -> Promise<void>` (preview.js) — sanitized HTML into container, then renders each `language-mermaid` block to SVG; a failing block becomes a `.preview-error` box, the rest of the document still renders
-  - `initUI(view) -> { showError(message), setStatusFile(name, dirty), updateStatus() }` (ui.js) — wires toolbar clicks, keyboard shortcuts, Edit/Preview toggle (preserving editor scroll), status bar, URL dialog, error banner. File actions (`new`, `open`, `save`) are stubs in this task; Task 8 fills them via `registerFileActions(handlers)`.
+  - `initUI(view) -> { showError(message), setStatusFile(name, dirty), updateStatus() }` (ui.js) — wires toolbar clicks, keyboard shortcuts, Edit/Preview toggle (preserving editor scroll), status bar, URL dialog, error banner. File actions (`new`, `open`, `save`) are stubs in this task; Task 10 fills them via `registerFileActions(handlers)`.
 
 - [ ] **Step 1: Create the full layout**
 
@@ -1153,7 +1334,7 @@ import * as fmt from './formatting.js';
 import { applyFormat, getDoc } from './editor.js';
 import { renderPreview } from './preview.js';
 
-// Filled in by registerFileActions (Task 8). Until then, no-ops.
+// Filled in by registerFileActions (Task 10). Until then, no-ops.
 let fileActions = { newFile() {}, openFile() {}, save() {}, saveAs() {} };
 
 export function registerFileActions(handlers) {
@@ -1334,19 +1515,286 @@ git commit -m "feat: toolbar, edit/preview toggle, preview pipeline, status bar"
 
 ---
 
-### Task 8: File I/O, dirty tracking, close guard
+### Task 9: Frontmatter panel component
 
 **Files:**
-- Modify: `src/main/main.js`, `src/preload.js`, `src/renderer/index.js` (no ui.js changes — `registerFileActions` already exists from Task 7)
+- Create: `src/renderer/fmpanel.js`
+- Modify: `src/renderer/index.html`, `src/renderer/styles.css`, `src/renderer/index.js`
 
 **Interfaces:**
-- Consumes: `registerFileActions(handlers)`, `showError`, `setStatusFile` (Task 7); `getDoc` / `setDoc` (Task 6)
+- Consumes: `parseFrontmatter`, `serializeFrontmatter`, `defaultFrontmatter` (Task 5)
+- Produces: `createFrontmatterPanel(root: HTMLElement, onChange: () => void) -> panel` where:
+  - `panel.setFrontmatter(fm: string | null)` — load state; `null` shows the "+ Add frontmatter" bar; a string parses into rows, collapsed by default
+  - `panel.getFrontmatter() -> string | null` — serialize current rows, or `null` when the document has no frontmatter
+  - `onChange` fires on every user edit (typing in fields, add/remove row, add/remove frontmatter) — Task 10 uses it for dirty tracking
+
+- [ ] **Step 1: Add the panel section to index.html**
+
+In `src/renderer/index.html`, insert between `</header>` and `<main id="content">`:
+```html
+  <section id="fm-panel"></section>
+```
+
+- [ ] **Step 2: Style the panel**
+
+Append to `src/renderer/styles.css`:
+```css
+#fm-panel {
+  border-bottom: 1px solid var(--border);
+  background: #fbfcfd;
+  font-size: 13px;
+}
+#fm-panel:empty { display: none; }
+#fm-add {
+  margin: 4px 8px;
+  padding: 2px 8px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+}
+.fm-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+}
+.fm-header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+}
+.fm-header .fm-remove {
+  margin-left: auto;
+  color: #a40e26;
+  font-size: 12px;
+}
+.fm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 12px 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.fm-row { display: flex; gap: 6px; align-items: center; }
+.fm-row input {
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+.fm-key { width: 140px; }
+.fm-value { flex: 1; }
+.fm-row button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #57606a;
+}
+.fm-raw {
+  font-family: Consolas, monospace;
+  color: #57606a;
+  padding: 3px 6px;
+}
+.fm-add-prop {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 2px 6px;
+}
+```
+
+- [ ] **Step 3: Create src/renderer/fmpanel.js**
+
+```js
+import {
+  parseFrontmatter,
+  serializeFrontmatter,
+  defaultFrontmatter,
+} from './frontmatter.js';
+
+export function createFrontmatterPanel(root, onChange) {
+  let rows = null; // null = document has no frontmatter
+  let collapsed = true;
+
+  function pairCount() {
+    return rows.filter((r) => r.raw === undefined).length;
+  }
+
+  function render() {
+    root.innerHTML = '';
+
+    if (rows === null) {
+      const add = document.createElement('button');
+      add.id = 'fm-add';
+      add.textContent = '+ Add frontmatter';
+      add.addEventListener('click', () => {
+        const today = new Date().toISOString().slice(0, 10);
+        rows = defaultFrontmatter(today);
+        collapsed = false;
+        render();
+        onChange();
+      });
+      root.appendChild(add);
+      return;
+    }
+
+    const header = document.createElement('div');
+    header.className = 'fm-header';
+    const toggle = document.createElement('button');
+    toggle.textContent = `${collapsed ? '▸' : '▾'} Frontmatter (${pairCount()})`;
+    toggle.addEventListener('click', () => {
+      collapsed = !collapsed;
+      render();
+    });
+    const remove = document.createElement('button');
+    remove.className = 'fm-remove';
+    remove.textContent = 'Remove frontmatter';
+    remove.addEventListener('click', () => {
+      rows = null;
+      render();
+      onChange();
+    });
+    header.append(toggle, remove);
+    root.appendChild(header);
+
+    if (collapsed) return;
+
+    const list = document.createElement('div');
+    list.className = 'fm-rows';
+    rows.forEach((row, i) => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'fm-row';
+      if (row.raw !== undefined) {
+        const raw = document.createElement('code');
+        raw.className = 'fm-raw';
+        raw.textContent = row.raw;
+        rowEl.appendChild(raw);
+      } else {
+        const key = document.createElement('input');
+        key.className = 'fm-key';
+        key.placeholder = 'key';
+        key.value = row.key;
+        key.addEventListener('input', () => {
+          row.key = key.value;
+          onChange();
+        });
+        const value = document.createElement('input');
+        value.className = 'fm-value';
+        value.placeholder = 'value';
+        value.value = row.value;
+        value.addEventListener('input', () => {
+          row.value = value.value;
+          onChange();
+        });
+        const del = document.createElement('button');
+        del.textContent = '✕';
+        del.title = 'Remove property';
+        del.addEventListener('click', () => {
+          rows.splice(i, 1);
+          render();
+          onChange();
+        });
+        rowEl.append(key, value, del);
+      }
+      list.appendChild(rowEl);
+    });
+
+    const addProp = document.createElement('button');
+    addProp.className = 'fm-add-prop';
+    addProp.textContent = '+ Add property';
+    addProp.addEventListener('click', () => {
+      rows.push({ key: '', value: '' });
+      render();
+      const keys = root.querySelectorAll('.fm-key');
+      keys[keys.length - 1].focus();
+      onChange();
+    });
+    list.appendChild(addProp);
+    root.appendChild(list);
+  }
+
+  render();
+
+  return {
+    setFrontmatter(fm) {
+      rows = fm === null ? null : parseFrontmatter(fm);
+      collapsed = true;
+      render();
+    },
+    getFrontmatter() {
+      if (rows === null) return null;
+      return serializeFrontmatter(rows);
+    },
+  };
+}
+```
+
+- [ ] **Step 4: Mount the panel in index.js**
+
+Replace `src/renderer/index.js` (dirty tracking arrives in Task 10 — the panel's `onChange` is a no-op for now):
+```js
+import './styles.css';
+import 'katex/dist/katex.min.css';
+import { createEditor } from './editor.js';
+import { initUI } from './ui.js';
+import { createFrontmatterPanel } from './fmpanel.js';
+
+let ui;
+const view = createEditor(document.getElementById('editor-pane'), () => {
+  if (ui) ui.updateStatus();
+});
+ui = initUI(view);
+const fmPanel = createFrontmatterPanel(
+  document.getElementById('fm-panel'),
+  () => {}
+);
+view.focus();
+```
+
+- [ ] **Step 5: Run the unit tests (regression check)**
+
+Run: `npm test`
+Expected: all suites still PASS.
+
+- [ ] **Step 6: Verify manually**
+
+Run: `npm start`. Check each of:
+- A slim "+ Add frontmatter" bar sits between toolbar and editor.
+- Clicking it shows an expanded panel with `title` (empty), `date` (today), `tags` (`[]`) rows.
+- The chevron collapses to `▸ Frontmatter (3)` and back.
+- "+ Add property" appends an empty row and focuses its key field; ✕ removes a row; "Remove frontmatter" returns to the "+ Add frontmatter" bar.
+- The panel stays visible when switching to Preview mode.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add src/renderer/fmpanel.js src/renderer/index.html src/renderer/styles.css src/renderer/index.js
+git commit -m "feat: collapsible frontmatter key-value panel"
+```
+
+---
+
+### Task 10: File I/O, frontmatter round trip, dirty tracking, close guard
+
+**Files:**
+- Modify: `src/main/main.js`, `src/preload.js`, `src/renderer/index.js`
+
+**Interfaces:**
+- Consumes: `registerFileActions(handlers)`, `showError`, `setStatusFile` (Task 8); `getDoc` / `setDoc` (Task 7); `splitFrontmatter` / `joinDoc` (Task 5); `createFrontmatterPanel` (Task 9)
 - Produces `window.markpad` bridge:
-  - `openFile() -> Promise<{ path, name, content } | null>` (null = cancelled)
+  - `openFile() -> Promise<{ path, name, content } | { error } | null>` (null = cancelled)
   - `saveFile(path, content) -> Promise<{ ok: true } | { ok: false, error }>`
   - `saveFileAs(content) -> Promise<{ ok: true, path, name } | { ok: false, error } | null>`
   - `confirmUnsaved() -> Promise<0 | 1 | 2>` (0 = Save, 1 = Don't Save, 2 = Cancel)
   - `onCloseRequested(cb)`, `confirmClose()`
+- The saved document on disk is always `joinDoc(panel frontmatter, editor body)`.
 
 - [ ] **Step 1: Replace src/main/main.js**
 
@@ -1459,27 +1907,21 @@ contextBridge.exposeInMainWorld('markpad', {
 });
 ```
 
-- [ ] **Step 3: Add file state wiring to src/renderer/index.js**
+- [ ] **Step 3: Replace src/renderer/index.js (file state + frontmatter round trip)**
 
-Replace `src/renderer/index.js`:
 ```js
 import './styles.css';
 import 'katex/dist/katex.min.css';
 import { createEditor, getDoc, setDoc } from './editor.js';
 import { initUI, registerFileActions } from './ui.js';
+import { createFrontmatterPanel } from './fmpanel.js';
+import { splitFrontmatter, joinDoc } from './frontmatter.js';
 
 let ui;
+let fmPanel;
 let currentPath = null;
 let currentName = 'untitled.md';
 let savedDoc = '';
-
-function isDirty() {
-  return getDoc(view) !== savedDoc;
-}
-
-function refreshTitle() {
-  ui.setStatusFile(currentName, isDirty());
-}
 
 const view = createEditor(document.getElementById('editor-pane'), () => {
   if (!ui) return;
@@ -1487,6 +1929,30 @@ const view = createEditor(document.getElementById('editor-pane'), () => {
   refreshTitle();
 });
 ui = initUI(view);
+fmPanel = createFrontmatterPanel(document.getElementById('fm-panel'), () =>
+  refreshTitle()
+);
+
+// The document on disk = frontmatter block (panel) + body (editor).
+function fullDoc() {
+  return joinDoc(fmPanel.getFrontmatter(), getDoc(view));
+}
+
+function isDirty() {
+  return fullDoc() !== savedDoc;
+}
+
+function refreshTitle() {
+  if (!ui || !fmPanel) return;
+  ui.setStatusFile(currentName, isDirty());
+}
+
+function markSaved(pathOrNull, name) {
+  currentPath = pathOrNull;
+  currentName = name;
+  savedDoc = fullDoc();
+  refreshTitle();
+}
 
 // Returns true if it is safe to discard the current buffer.
 async function guardDirty() {
@@ -1497,15 +1963,9 @@ async function guardDirty() {
   return true; // Don't Save
 }
 
-function markSaved(pathOrNull, name) {
-  currentPath = pathOrNull;
-  currentName = name;
-  savedDoc = getDoc(view);
-  refreshTitle();
-}
-
 async function newFile() {
   if (!(await guardDirty())) return;
+  fmPanel.setFrontmatter(null);
   setDoc(view, '');
   markSaved(null, 'untitled.md');
   view.focus();
@@ -1519,14 +1979,17 @@ async function openFile() {
     ui.showError(`Could not open file: ${result.error}`);
     return;
   }
-  setDoc(view, result.content);
+  const normalized = result.content.replace(/\r\n/g, '\n');
+  const { fm, body } = splitFrontmatter(normalized);
+  fmPanel.setFrontmatter(fm);
+  setDoc(view, body);
   markSaved(result.path, result.name);
   view.focus();
 }
 
 async function save() {
   if (!currentPath) return saveAs();
-  const result = await window.markpad.saveFile(currentPath, getDoc(view));
+  const result = await window.markpad.saveFile(currentPath, fullDoc());
   if (!result.ok) {
     ui.showError(`Could not save file: ${result.error}`);
     return false;
@@ -1536,7 +1999,7 @@ async function save() {
 }
 
 async function saveAs() {
-  const result = await window.markpad.saveFileAs(getDoc(view));
+  const result = await window.markpad.saveFileAs(fullDoc());
   if (!result) return false; // cancelled
   if (!result.ok) {
     ui.showError(`Could not save file: ${result.error}`);
@@ -1568,19 +2031,21 @@ Run: `npm start`. Check each of:
 - Edit again → `●` returns; `Ctrl+S` saves silently to the same path.
 - `Ctrl+Shift+S` always opens Save As.
 - Open (`Ctrl+O`) an existing `.md` file → content loads, name shown.
-- With unsaved changes: New, Open, and closing the window each prompt Save / Don't Save / Cancel. Cancel aborts; Don't Save proceeds; Save writes then proceeds. Closing after Cancel leaves the window open.
-- Round-trip: save a file, reopen it, content identical.
+- **Frontmatter round trip:** open a file that starts with a `---` block → the block does NOT appear in the editor; the panel shows `▸ Frontmatter (n)` collapsed. Expand, edit a value → `●` appears. Save, then open the file in Notepad → the YAML block is at the top with your edit, body intact.
+- **Nested YAML preserved:** a file with `tags:` followed by indented `- a` lines shows those lines as read-only rows and writes them back unchanged.
+- Adding frontmatter via the panel to a plain file and saving writes the block; "Remove frontmatter" + save removes it from disk.
+- With unsaved changes (editor OR panel): New, Open, and closing the window each prompt Save / Don't Save / Cancel. Cancel aborts; Don't Save proceeds; Save writes then proceeds.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add src/main/main.js src/preload.js src/renderer/index.js
-git commit -m "feat: file open/save, dirty tracking, unsaved-changes close guard"
+git commit -m "feat: file open/save with frontmatter round trip and close guard"
 ```
 
 ---
 
-### Task 9: Final verification and README
+### Task 11: Final verification and README
 
 **Files:**
 - Create: `README.md`
@@ -1598,10 +2063,11 @@ Expected: all tests PASS. Record the count.
 
 Run: `npm start` and verify each item from the spec:
 - File open/save/save-as round trip
-- Unsaved-changes prompts (New / Open / window close)
+- Unsaved-changes prompts (New / Open / window close), including edits made only in the frontmatter panel
 - Edit/Preview toggle preserving cursor and scroll
 - Math, Mermaid, and footnote rendering in preview
 - Malformed mermaid block → inline error box only
+- Frontmatter round trip (open file with a YAML block → edit in panel → save → block written back; nested YAML preserved verbatim)
 - Every toolbar button + every keyboard shortcut (`Ctrl+B/I/K/E/N/O/S`, `Ctrl+Shift+S`)
 
 Fix anything that fails before proceeding (use superpowers:systematic-debugging).
@@ -1612,7 +2078,7 @@ Fix anything that fails before proceeding (use superpowers:systematic-debugging)
 # MarkPad
 
 A small Windows desktop markdown editor: one file at a time, a GFM formatting
-toolbar, and an Edit/Preview toggle.
+toolbar, a collapsible frontmatter panel, and an Edit/Preview toggle.
 
 ## Run
 
@@ -1628,6 +2094,8 @@ toolbar, and an Edit/Preview toggle.
 - Toolbar: H1–H3, bold, italic, strikethrough, inline code, code block, link,
   image, blockquote, bullet/numbered/task lists, table, horizontal rule
 - `Ctrl+E` toggles between the markdown source and a rendered preview
+- Frontmatter: YAML at the top of a file appears in a collapsible key-value
+  panel above the editor; unknown YAML lines are preserved verbatim
 - Preview renders GFM plus footnotes, KaTeX math (`$x^2$`), and Mermaid
   diagrams (```` ```mermaid ```` blocks)
 - Unsaved-changes guard on New / Open / close
