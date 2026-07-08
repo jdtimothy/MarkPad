@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 
@@ -33,12 +33,24 @@ function createWindow() {
     win.close();
   });
 
+  // Guard against the renderer navigating (or spawning a new window into)
+  // a remote origin, which would re-attach the preload bridge there.
+  win.webContents.on('will-navigate', (e, url) => {
+    e.preventDefault();
+    shell.openExternal(url);
+  });
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
   win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
   return win;
 }
 
-ipcMain.handle('dialog:open', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog({
+ipcMain.handle('dialog:open', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(parent, {
     filters: FILE_FILTERS,
     properties: ['openFile'],
   });
@@ -61,8 +73,9 @@ ipcMain.handle('file:save', async (_event, filePath, content) => {
   }
 });
 
-ipcMain.handle('dialog:saveAs', async (_event, content) => {
-  const { canceled, filePath } = await dialog.showSaveDialog({
+ipcMain.handle('dialog:saveAs', async (event, content) => {
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePath } = await dialog.showSaveDialog(parent, {
     filters: FILE_FILTERS,
     defaultPath: 'untitled.md',
   });
@@ -75,8 +88,9 @@ ipcMain.handle('dialog:saveAs', async (_event, content) => {
   }
 });
 
-ipcMain.handle('dialog:confirmUnsaved', async () => {
-  const { response } = await dialog.showMessageBox({
+ipcMain.handle('dialog:confirmUnsaved', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const { response } = await dialog.showMessageBox(parent, {
     type: 'warning',
     buttons: ['Save', "Don't Save", 'Cancel'],
     defaultId: 0,

@@ -1,4 +1,5 @@
 import mermaid from 'mermaid';
+import DOMPurify from 'dompurify';
 import { renderMarkdown } from './markdown.js';
 
 mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
@@ -14,7 +15,9 @@ export async function renderPreview(container, source) {
     code.parentElement.replaceWith(div);
     try {
       const { svg } = await mermaid.render(`mermaid-${mermaidCounter++}`, src);
-      div.innerHTML = svg;
+      div.innerHTML = DOMPurify.sanitize(svg, {
+        USE_PROFILES: { svg: true, svgFilters: true },
+      });
     } catch (err) {
       div.className = 'preview-error';
       div.textContent = `Mermaid error: ${err.message}`;
