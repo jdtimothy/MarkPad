@@ -1,7 +1,7 @@
 {
   "name": "markpad",
   "version": "1.0.0",
-  "description": "A small markdown editor with a formatting toolbar and live preview",
+  "description": "A modern markdown editor with a formatting toolbar with live preview editing",
   "main": "src/main/main.js",
   "scripts": {
     "build": "esbuild ./src/renderer/index.js --bundle --outdir=dist --entry-names=renderer --format=iife --loader:.woff=file --loader:.woff2=file --loader:.ttf=file --asset-names=assets/[name]-[hash]",
