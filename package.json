@@ -1,6 +1,6 @@
 {
   "name": "markpad",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A small markdown editor with a formatting toolbar and live preview",
   "main": "src/main/main.js",
   "scripts": {

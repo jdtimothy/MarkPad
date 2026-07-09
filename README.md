@@ -1,7 +1,7 @@
 # MarkPad
 
 A small Windows desktop markdown editor: one file at a time, a GFM formatting
-toolbar, a collapsible frontmatter panel, and an Edit/Preview toggle.
+toolbar, a collapsible frontmatter panel, and an Edit/Render view.
 
 ## Run
 
