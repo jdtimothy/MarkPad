@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { slugify, newPostPath, uniquePath, guessDirs } from '../src/renderer/github-paths.js';
+import {
+  slugify,
+  newPostPath,
+  uniquePath,
+  guessDirs,
+  imageLink,
+  repoPathForLink,
+} from '../src/renderer/github-paths.js';
 
 describe('slugify', () => {
   it('lowercases and hyphenates', () => {
@@ -55,5 +62,48 @@ describe('guessDirs', () => {
   });
   it('falls back to repo root and an images folder when nothing matches', () => {
     expect(guessDirs(['a.md'])).toEqual({ contentDir: '', imageDir: 'images' });
+  });
+});
+
+describe('imageLink', () => {
+  it('builds a site-absolute link stripped of the publish root', () => {
+    expect(imageLink('content/posts/a.md', 'static/img/x.png', 'site-absolute'))
+      .toBe('/img/x.png');
+  });
+  it('leaves a non-publish-root prefix intact when site-absolute', () => {
+    expect(imageLink('content/a.md', 'assets/x.png', 'site-absolute'))
+      .toBe('/assets/x.png');
+  });
+  it('builds a relative link from the post to the image', () => {
+    expect(imageLink('content/posts/a.md', 'content/posts/img/x.png', 'relative'))
+      .toBe('img/x.png');
+  });
+  it('walks up out of the post directory when needed', () => {
+    expect(imageLink('content/posts/a.md', 'static/x.png', 'relative'))
+      .toBe('../../static/x.png');
+  });
+  it('handles a post at the repo root', () => {
+    expect(imageLink('a.md', 'images/x.png', 'relative')).toBe('images/x.png');
+  });
+});
+
+describe('repoPathForLink', () => {
+  it('reverses a relative link back to a repo path', () => {
+    expect(repoPathForLink('content/posts/a.md', '../../static/x.png', []))
+      .toBe('static/x.png');
+  });
+  it('resolves a same-directory link', () => {
+    expect(repoPathForLink('content/a.md', 'img/x.png', [])).toBe('content/img/x.png');
+  });
+  it('restores the publish root a site-absolute link stripped', () => {
+    expect(repoPathForLink('content/a.md', '/img/x.png', ['static/img/x.png']))
+      .toBe('static/img/x.png');
+  });
+  it('leaves a site-absolute link alone when it already matches a real path', () => {
+    expect(repoPathForLink('content/a.md', '/assets/x.png', ['assets/x.png']))
+      .toBe('assets/x.png');
+  });
+  it('falls back to the bare path when nothing matches', () => {
+    expect(repoPathForLink('content/a.md', '/img/x.png', [])).toBe('img/x.png');
   });
 });

@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('markpad', {
   openFile: () => ipcRenderer.invoke('dialog:open'),
   openImage: () => ipcRenderer.invoke('dialog:openImage'),
+  openImageData: () => ipcRenderer.invoke('dialog:openImageData'),
   saveFile: (path, content) => ipcRenderer.invoke('file:save', path, content),
   saveFileAs: (content) => ipcRenderer.invoke('dialog:saveAs', content),
   confirmUnsaved: () => ipcRenderer.invoke('dialog:confirmUnsaved'),
@@ -25,5 +26,6 @@ contextBridge.exposeInMainWorld('markpad', {
     commit: (args) => ipcRenderer.invoke('github:commit', args),
     getHead: (repo, branch) => ipcRenderer.invoke('github:getHead', repo, branch),
     fileSha: (repo, branch, path) => ipcRenderer.invoke('github:fileSha', repo, branch, path),
+    readAsset: (repo, branch, path) => ipcRenderer.invoke('github:readAsset', repo, branch, path),
   },
 });

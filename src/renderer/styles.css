@@ -954,3 +954,32 @@ select {
 .gh-menu button:hover {
   background: var(--accent-soft);
 }
+
+.gh-settings {
+  margin: 8px 0;
+}
+
+.gh-settings summary {
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.gh-settings label {
+  display: block;
+  margin: 6px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gh-settings input,
+.gh-settings select {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--fg);
+  font: inherit;
+}

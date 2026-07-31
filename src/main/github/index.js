@@ -91,6 +91,18 @@ function registerGitHubHandlers() {
   ipcMain.handle('github:commit', wrap((args) => repoApi.commit(client, args)));
   ipcMain.handle('github:getHead', wrap((repo, branch) => repoApi.getHead(client, repo, branch)));
   ipcMain.handle('github:fileSha', wrap((repo, branch, path) => repoApi.fileSha(client, repo, branch, path)));
+
+  // Committed images come back as data URLs so the preview never has to make
+  // a cross-origin request, which keeps private repos working and the
+  // renderer's CSP intact.
+  ipcMain.handle('github:readAsset', wrap(async (repo, branch, assetPath) => {
+    const data = await client.request('GET', `/repos/${repo}/contents/${repoApi.encodePath(assetPath)}`, {
+      query: { ref: branch },
+    });
+    const ext = assetPath.split('.').pop().toLowerCase();
+    const mime = ext === 'svg' ? 'svg+xml' : ext === 'jpg' ? 'jpeg' : ext;
+    return { dataUrl: `data:image/${mime};base64,${data.content.replace(/\n/g, '')}` };
+  }));
 }
 
 module.exports = { registerGitHubHandlers, getClient: () => client, hasToken: () => Boolean(token) };

@@ -1,7 +1,9 @@
 import './styles.css';
 import 'katex/dist/katex.min.css';
 import { createEditor, getDoc, setDoc } from './editor.js';
-import { initUI, registerFileActions } from './ui.js';
+import { initUI, registerFileActions, setImageHandler } from './ui.js';
+import { setAssetResolver } from './preview.js';
+import { imageLink, repoPathForLink, uniquePath } from './github-paths.js';
 import { createFrontmatterPanel } from './fmpanel.js';
 import { splitFrontmatter, joinDoc } from './frontmatter.js';
 import { createGitHubPanel } from './github-panel.js';
@@ -15,6 +17,8 @@ let ui;
 let fmPanel;
 let source = null; // null = a new unsaved buffer
 let currentName = 'untitled.md';
+// Images chosen for a repo document wait here until the next commit.
+let pendingImages = []; // [{ path, base64, dataUrl }]
 let savedDoc = '';
 const titlebarFile = document.getElementById('titlebar-file');
 const maximizeButton = document.getElementById('window-maximize');
@@ -30,6 +34,7 @@ fmPanel = createFrontmatterPanel(document.getElementById('fm-panel'), () =>
 );
 async function openRepoFile({ repo, branch, path, sha, headSha, content }) {
   if (!(await guardDirty())) return;
+  pendingImages = [];
   const normalized = content.replace(/\r\n/g, '\n');
   const { fm, body } = splitFrontmatter(normalized);
   fmPanel.setFrontmatter(fm);
@@ -43,6 +48,7 @@ async function openRepoFile({ repo, branch, path, sha, headSha, content }) {
 
 async function newRepoFile({ repo, branch, path }) {
   if (!(await guardDirty())) return;
+  pendingImages = [];
   const head = await window.markpad.github.getHead(repo, branch);
   if (!head.ok) {
     ui.showError(`Could not start a new post: ${head.error}`);
@@ -128,6 +134,7 @@ async function guardDirty() {
 
 async function newFile() {
   if (!(await guardDirty())) return;
+  pendingImages = [];
   fmPanel.setFrontmatter(null);
   setDoc(view, '');
   await ui.refreshRendered();
@@ -136,6 +143,7 @@ async function newFile() {
 
 async function openFile() {
   if (!(await guardDirty())) return;
+  pendingImages = [];
   const result = await window.markpad.openFile();
   if (!result) return;
   if (result.error) {
@@ -165,13 +173,15 @@ async function save() {
   const message = await commitBar.ask(`Update ${source.path}`);
   if (message === null) return false;
 
+  const extraFiles = pendingImages.map((i) => ({ path: i.path, contentBase64: i.base64 }));
+
   // Stale-file guard: has this exact file moved since we opened it?
   const current = await window.markpad.github.fileSha(source.repo, source.branch, source.path);
   const stale = current.ok && current.data.sha && current.data.sha !== source.baseSha;
 
   let result = stale
     ? { ok: false, conflict: true, error: 'File changed on GitHub' }
-    : await source.save(fullDoc(), { message });
+    : await source.save(fullDoc(), { message, extraFiles });
 
   if (!result.ok && result.conflict) {
     const choice = await askConflict(
@@ -188,7 +198,7 @@ async function save() {
       await reloadFromGitHub();
       return false;
     }
-    result = await source.save(fullDoc(), { message, force: true });
+    result = await source.save(fullDoc(), { message, extraFiles, force: true });
   }
 
   if (!result.ok) {
@@ -196,6 +206,7 @@ async function save() {
     return false;
   }
   markSaved(result.source, currentName);
+  pendingImages = [];
   ghPanel.reloadTree();
   return true;
 }
@@ -235,6 +246,30 @@ async function saveAs() {
   markSaved(sources.localSource(result.path, result.name), result.name);
   return true;
 }
+
+setImageHandler(async () => {
+  if (source?.kind !== 'repo') return null;
+  const picked = await window.markpad.openImageData();
+  if (!picked || picked.error) {
+    if (picked?.error) ui.showError(`Could not read image: ${picked.error}`);
+    return null;
+  }
+  const { imageDir, imageLinkStyle } = ghPanel.getConfig();
+  const taken = [...ghPanel.getPaths(), ...pendingImages.map((i) => i.path)];
+  const path = uniquePath(imageDir ? `${imageDir}/${picked.name}` : picked.name, taken);
+  pendingImages.push({ path, base64: picked.base64, dataUrl: picked.dataUrl });
+  return { url: imageLink(source.path, path, imageLinkStyle), name: picked.name };
+});
+
+setAssetResolver(async (src) => {
+  if (source?.kind !== 'repo') return null;
+  const known = [...ghPanel.getPaths(), ...pendingImages.map((i) => i.path)];
+  const resolved = repoPathForLink(source.path, src, known);
+  const staged = pendingImages.find((i) => i.path === resolved);
+  if (staged) return staged.dataUrl;
+  const asset = await window.markpad.github.readAsset(source.repo, source.branch, resolved);
+  return asset.ok ? asset.data.dataUrl : null;
+});
 
 registerFileActions({ newFile, openFile, save, saveAs });
 

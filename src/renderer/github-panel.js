@@ -1,5 +1,6 @@
 import { buildTree } from './github-tree.js';
 import { guessDirs, uniquePath } from './github-paths.js';
+import { loadConfig, saveConfig } from './repo-config.js';
 
 export function createGitHubPanel(container, {
   onError = () => {},
@@ -19,7 +20,7 @@ export function createGitHubPanel(container, {
   let truncated = false;
   let openPath = null;
   let allPaths = [];
-  let dirs = { contentDir: '', imageDir: 'images' };
+  let config = { contentDir: '', imageDir: 'images', imageLinkStyle: 'relative' };
 
   window.markpad.github.onDeviceCode(({ userCode, verificationUri }) => {
     codeEl.textContent = userCode;
@@ -109,7 +110,7 @@ export function createGitHubPanel(container, {
     tree = data ? buildTree(data.entries) : [];
     truncated = Boolean(data?.truncated);
     allPaths = data ? data.entries.filter((e) => e.type === 'blob').map((e) => e.path) : [];
-    dirs = guessDirs(allPaths);
+    config = loadConfig(selectedRepo, guessDirs(allPaths));
     render();
   }
 
@@ -132,7 +133,7 @@ export function createGitHubPanel(container, {
   }
 
   async function newPost() {
-    const dir = dirs.contentDir;
+    const dir = config.contentDir;
     const initial = dir ? `${dir}/untitled.md` : 'untitled.md';
     const path = await askPath('New post path', initial, 'Create');
     if (!path) return;
@@ -308,6 +309,45 @@ export function createGitHubPanel(container, {
     }
     container.append(actions);
 
+    // The directory guesses are a starting point, not a decision — every
+    // per-repo setting is editable here and persists in local storage.
+    if (selectedRepo) {
+      const settings = document.createElement('details');
+      settings.className = 'gh-settings';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Repository settings';
+      settings.append(summary);
+
+      const fields = [
+        ['contentDir', 'New posts folder', 'text'],
+        ['imageDir', 'Images folder', 'text'],
+        ['imageLinkStyle', 'Image links', 'select'],
+      ];
+      for (const [key, label, kind] of fields) {
+        const wrap = document.createElement('label');
+        wrap.textContent = label;
+        let input;
+        if (kind === 'select') {
+          input = document.createElement('select');
+          input.append(
+            new Option('Relative to the post', 'relative', false, config[key] === 'relative'),
+            new Option('Absolute from site root', 'site-absolute', false, config[key] === 'site-absolute')
+          );
+        } else {
+          input = document.createElement('input');
+          input.type = 'text';
+          input.value = config[key];
+        }
+        input.addEventListener('change', () => {
+          config = { ...config, [key]: input.value };
+          saveConfig(selectedRepo, config);
+        });
+        wrap.append(input);
+        settings.append(wrap);
+      }
+      container.append(settings);
+    }
+
     const treeEl = document.createElement('div');
     treeEl.className = 'gh-tree';
     renderNodes(tree, treeEl, 0);
@@ -330,7 +370,7 @@ export function createGitHubPanel(container, {
     getSelection: () => (selectedRepo && selectedBranch ? { repo: selectedRepo, branch: selectedBranch } : null),
     reloadTree: loadTree,
     setOpenPath: (path) => { openPath = path; render(); },
-    getDirs: () => dirs,
+    getConfig: () => config,
     getPaths: () => allPaths,
   };
 }
