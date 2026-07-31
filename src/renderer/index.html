@@ -149,6 +149,25 @@
     </div>
   </dialog>
 
+  <dialog id="template-dialog">
+    <form method="dialog">
+      <label id="template-label" for="template-name">Template name</label>
+      <input id="template-name" type="text" />
+      <div class="dialog-buttons">
+        <button value="cancel">Cancel</button>
+        <button value="ok" id="template-ok">Save template</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="template-manage-dialog">
+    <h3>Templates</h3>
+    <div id="template-manage-list"></div>
+    <div class="dialog-buttons">
+      <button id="template-manage-close" type="button">Close</button>
+    </div>
+  </dialog>
+
   <script src="../../dist/renderer.js"></script>
 </body>
 </html>
