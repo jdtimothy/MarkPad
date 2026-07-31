@@ -914,3 +914,14 @@ select {
   background: var(--accent);
   color: white;
 }
+
+.gh-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.gh-actions button {
+  flex: 1 1 auto;
+}

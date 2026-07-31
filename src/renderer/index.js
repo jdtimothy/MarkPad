@@ -41,9 +41,30 @@ async function openRepoFile({ repo, branch, path, sha, headSha, content }) {
   );
 }
 
+async function newRepoFile({ repo, branch, path }) {
+  if (!(await guardDirty())) return;
+  const head = await window.markpad.github.getHead(repo, branch);
+  if (!head.ok) {
+    ui.showError(`Could not start a new post: ${head.error}`);
+    return;
+  }
+  fmPanel.setFrontmatter(null);
+  setDoc(view, '');
+  await ui.refreshRendered();
+  // baseSha null means "this file does not exist on GitHub yet", so the
+  // stale-file guard in save() correctly skips the conflict check.
+  markSaved(
+    sources.repoSource({ repo, branch, path, baseSha: null, headSha: head.data.headSha }),
+    path.split('/').pop()
+  );
+  savedDoc = null; // a brand-new post starts dirty so Ctrl+S has something to do
+  refreshTitle();
+}
+
 const ghPanel = createGitHubPanel(document.getElementById('gh-sidebar'), {
   onError: (msg) => ui.showError(msg),
   onOpenFile: openRepoFile,
+  onNewFile: newRepoFile,
 });
 ghPanel.refreshAccount();
 

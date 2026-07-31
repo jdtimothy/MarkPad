@@ -1,8 +1,10 @@
 import { buildTree } from './github-tree.js';
+import { guessDirs, uniquePath } from './github-paths.js';
 
 export function createGitHubPanel(container, {
   onError = () => {},
   onOpenFile = async () => {},
+  onNewFile = async () => {},
 } = {}) {
   const dialog = document.getElementById('device-dialog');
   const codeEl = document.getElementById('device-code');
@@ -14,6 +16,8 @@ export function createGitHubPanel(container, {
   let tree = [];
   let truncated = false;
   let openPath = null;
+  let allPaths = [];
+  let dirs = { contentDir: '', imageDir: 'images' };
 
   window.markpad.github.onDeviceCode(({ userCode, verificationUri }) => {
     codeEl.textContent = userCode;
@@ -102,7 +106,39 @@ export function createGitHubPanel(container, {
     const data = await call(window.markpad.github.listTree(selectedRepo, selectedBranch));
     tree = data ? buildTree(data.entries) : [];
     truncated = Boolean(data?.truncated);
+    allPaths = data ? data.entries.filter((e) => e.type === 'blob').map((e) => e.path) : [];
+    dirs = guessDirs(allPaths);
     render();
+  }
+
+  function askPath(labelText, initial, okText) {
+    const dialog = document.getElementById('path-dialog');
+    const input = document.getElementById('path-input');
+    document.getElementById('path-label').textContent = labelText;
+    document.getElementById('path-ok').textContent = okText;
+    input.value = initial;
+    dialog.returnValue = 'cancel';
+    dialog.showModal();
+    const slash = initial.lastIndexOf('/');
+    const dot = initial.lastIndexOf('.');
+    input.setSelectionRange(slash + 1, dot > slash ? dot : initial.length);
+    return new Promise((resolve) => {
+      dialog.addEventListener('close', () => {
+        resolve(dialog.returnValue === 'ok' ? input.value.trim() : null);
+      }, { once: true });
+    });
+  }
+
+  async function newPost() {
+    const dir = dirs.contentDir;
+    const initial = dir ? `${dir}/untitled.md` : 'untitled.md';
+    const path = await askPath('New post path', initial, 'Create');
+    if (!path) return;
+    await onNewFile({
+      repo: selectedRepo,
+      branch: selectedBranch,
+      path: uniquePath(path, allPaths),
+    });
   }
 
   async function openFile(path) {
@@ -192,6 +228,16 @@ export function createGitHubPanel(container, {
       container.append(warn);
     }
 
+    const actions = document.createElement('div');
+    actions.className = 'gh-actions';
+    if (selectedRepo && selectedBranch) {
+      const add = document.createElement('button');
+      add.textContent = '+ New post';
+      add.addEventListener('click', newPost);
+      actions.append(add);
+    }
+    container.append(actions);
+
     const treeEl = document.createElement('div');
     treeEl.className = 'gh-tree';
     renderNodes(tree, treeEl, 0);
@@ -214,5 +260,7 @@ export function createGitHubPanel(container, {
     getSelection: () => (selectedRepo && selectedBranch ? { repo: selectedRepo, branch: selectedBranch } : null),
     reloadTree: loadTree,
     setOpenPath: (path) => { openPath = path; render(); },
+    getDirs: () => dirs,
+    getPaths: () => allPaths,
   };
 }
