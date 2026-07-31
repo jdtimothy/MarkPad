@@ -5,10 +5,13 @@ import { initUI, registerFileActions } from './ui.js';
 import { createFrontmatterPanel } from './fmpanel.js';
 import { splitFrontmatter, joinDoc } from './frontmatter.js';
 import { createGitHubPanel } from './github-panel.js';
+import { createSources } from './doc-source.js';
+
+const sources = createSources(window.markpad);
 
 let ui;
 let fmPanel;
-let currentPath = null;
+let source = null; // null = a new unsaved buffer
 let currentName = 'untitled.md';
 let savedDoc = '';
 const titlebarFile = document.getElementById('titlebar-file');
@@ -23,18 +26,17 @@ ui = initUI(view, () => refreshTitle());
 fmPanel = createFrontmatterPanel(document.getElementById('fm-panel'), () =>
   refreshTitle()
 );
-// Temporary until Task 7 introduces the document source: a repo file opens
-// into the buffer but is not yet backed by a saveable source, so Ctrl+S
-// falls through to Save As.
-async function openRepoFile({ repo, branch, path, sha, content }) {
+async function openRepoFile({ repo, branch, path, sha, headSha, content }) {
   if (!(await guardDirty())) return;
   const normalized = content.replace(/\r\n/g, '\n');
   const { fm, body } = splitFrontmatter(normalized);
   fmPanel.setFrontmatter(fm);
   setDoc(view, body);
   await ui.refreshRendered();
-  currentPath = null;
-  markSaved(null, path.split('/').pop());
+  markSaved(
+    sources.repoSource({ repo, branch, path, baseSha: sha, headSha }),
+    path.split('/').pop()
+  );
 }
 
 const ghPanel = createGitHubPanel(document.getElementById('gh-sidebar'), {
@@ -60,8 +62,8 @@ function refreshTitle() {
   if (titlebarFile) titlebarFile.textContent = dirty ? `${currentName} *` : currentName;
 }
 
-function markSaved(pathOrNull, name) {
-  currentPath = pathOrNull;
+function markSaved(newSource, name) {
+  source = newSource;
   currentName = name;
   savedDoc = fullDoc();
   refreshTitle();
@@ -97,17 +99,17 @@ async function openFile() {
   fmPanel.setFrontmatter(fm);
   setDoc(view, body);
   await ui.refreshRendered();
-  markSaved(result.path, result.name);
+  markSaved(sources.localSource(result.path, result.name), result.name);
 }
 
 async function save() {
-  if (!currentPath) return saveAs();
-  const result = await window.markpad.saveFile(currentPath, fullDoc());
+  if (!source) return saveAs();
+  const result = await source.save(fullDoc());
   if (!result.ok) {
     ui.showError(`Could not save file: ${result.error}`);
     return false;
   }
-  markSaved(currentPath, currentName);
+  markSaved(result.source, currentName);
   return true;
 }
 
@@ -118,7 +120,7 @@ async function saveAs() {
     ui.showError(`Could not save file: ${result.error}`);
     return false;
   }
-  markSaved(result.path, result.name);
+  markSaved(sources.localSource(result.path, result.name), result.name);
   return true;
 }
 
