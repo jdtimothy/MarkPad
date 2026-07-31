@@ -9,6 +9,8 @@ import {
   expandDefaults,
   ensureSeeded,
   listTemplates,
+  saveTemplate,
+  templateFromRows,
 } from './templates.js';
 
 const isoToday = () => new Date().toISOString().slice(0, 10);
@@ -39,6 +41,35 @@ export function createFrontmatterPanel(
     onChange();
   }
 
+  // Electron does not implement window.prompt(), so naming uses the app's
+  // own dialog. Resolves to the trimmed name, or null if cancelled.
+  function askName(labelText, okText, initial = '') {
+    const dialog = document.getElementById('template-dialog');
+    const input = document.getElementById('template-name');
+    document.getElementById('template-label').textContent = labelText;
+    document.getElementById('template-ok').textContent = okText;
+    input.value = initial;
+    dialog.returnValue = 'cancel';
+    dialog.showModal();
+    input.select?.();
+    return new Promise((resolve) => {
+      dialog.addEventListener('close', () => {
+        resolve(dialog.returnValue === 'ok' ? input.value.trim() : null);
+      }, { once: true });
+    });
+  }
+
+  async function saveAsTemplate() {
+    const captured = templateFromRows(rows || [], today());
+    if (captured.length === 0) return;
+    const name = await askName('Template name', 'Save template');
+    if (!name) return;
+    const exists = listTemplates(store).some((t) => t.name === name);
+    if (exists && !window.confirm(`Replace the template "${name}"?`)) return;
+    saveTemplate(store, name, captured);
+    render();
+  }
+
   function renderTemplateBar() {
     const bar = document.createElement('div');
     bar.className = 'fm-template-bar';
@@ -65,6 +96,16 @@ export function createFrontmatterPanel(
     });
 
     bar.append(label, select);
+
+    // Only offered when there is something to capture.
+    if (rows && rows.some((r) => r.raw === undefined)) {
+      const save = document.createElement('button');
+      save.className = 'fm-template-save';
+      save.textContent = 'Save as template…';
+      save.addEventListener('click', saveAsTemplate);
+      bar.append(save);
+    }
+
     root.appendChild(bar);
   }
 

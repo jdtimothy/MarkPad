@@ -1,4 +1,4 @@
-// Frontmatter templates. The three functions below are pure; storage lives
+// Frontmatter templates. The first three functions are pure; storage lives
 // further down and takes an injected store so tests never touch localStorage.
 
 const TODAY_TOKEN = '{today}';

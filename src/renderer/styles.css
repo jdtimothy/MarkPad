@@ -717,6 +717,34 @@ select {
   font-size: 12px;
 }
 
+.fm-template-save {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fm-template-save:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+#template-dialog input {
+  display: block;
+  width: 100%;
+  margin: 6px 0 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--fg);
+  font: inherit;
+}
+
 .fm-row .fm-warn {
   flex: 0 0 auto;
   color: #8a6100;
