@@ -1,5 +1,10 @@
 const CONTENT_CANDIDATES = ['src/content', 'content', '_posts', 'posts', 'src/pages'];
-const IMAGE_CANDIDATES = ['static', 'public', 'assets', 'src/assets', 'images'];
+// `src/assets` leads because a repo that has it is Astro-shaped, where images
+// referenced from content go through the asset pipeline and `public/` is for
+// files served verbatim. Everything after it keeps the generic ordering.
+const IMAGE_CANDIDATES = ['src/assets', 'static', 'public', 'assets', 'images'];
+
+const MARKDOWN_EXT = /\.(md|markdown)$/i;
 
 // Directories a static-site generator publishes at the site root.
 const PUBLISH_ROOTS = ['static', 'public'];
@@ -27,6 +32,15 @@ export function slugify(text) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return slug || 'untitled';
+}
+
+// A post saved without a markdown extension is invisible to both the sidebar
+// tree and most static-site generators, so give it one. The typed name is
+// never discarded — a non-markdown extension is appended to, not replaced.
+export function ensureMarkdownExtension(path) {
+  const name = path.slice(path.lastIndexOf('/') + 1);
+  if (!name || MARKDOWN_EXT.test(name)) return path;
+  return `${path}.md`;
 }
 
 export function newPostPath(contentDir, title) {

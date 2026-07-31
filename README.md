@@ -50,6 +50,9 @@ file. Both the body and frontmatter pickers use the repository's image folder,
 avoid overwriting an existing file by suffixing the name, and write the link in
 whichever style the repository is configured for.
 
+New posts and renames get a `.md` extension when you leave one off, since a
+file without it is invisible to both the sidebar and most generators.
+
 Frontmatter images are not shown in the preview, which renders only the
 document body. A frontmatter value holding a list of images is left alone —
 the frontmatter panel handles flat `key: value` pairs and preserves anything

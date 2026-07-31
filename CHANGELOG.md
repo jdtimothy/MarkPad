@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - The toolbar's image button opened the URL prompt instead of the native file
   picker for local (non-repository) documents.
+- Images were embedded into the document as base64 data URLs instead of links.
+  The rendered pane swaps in resolved image bytes for display, and because
+  that pane is the editable source of truth, the data URL was serialized back
+  into the markdown on save.
+- New posts and renames without a markdown extension produced a file that
+  neither the sidebar tree nor most static-site generators would recognize;
+  `.md` is now appended when missing.
+- Image folder detection preferred `public` over `src/assets` on Astro-shaped
+  repositories, where content images belong in `src/assets`.
 
 ## [1.0.0] - 2026-07-08
 

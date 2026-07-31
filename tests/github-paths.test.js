@@ -7,6 +7,7 @@ import {
   imageLink,
   repoPathForLink,
   wantsImagePicker,
+  ensureMarkdownExtension,
 } from '../src/renderer/github-paths.js';
 
 describe('slugify', () => {
@@ -61,6 +62,15 @@ describe('guessDirs', () => {
   it('picks an image directory from known candidates', () => {
     expect(guessDirs(['static/img/logo.png', 'content/a.md']).imageDir).toBe('static');
   });
+  it('prefers src/assets over public on an Astro-shaped repo', () => {
+    // Astro serves public/ verbatim; content images belong in src/assets so
+    // the asset pipeline processes them.
+    expect(guessDirs([
+      'src/assets/blog/.gitkeep',
+      'public/favicon.svg',
+      'src/content/blog/a.md',
+    ]).imageDir).toBe('src/assets');
+  });
   it('falls back to repo root and an images folder when nothing matches', () => {
     expect(guessDirs(['a.md'])).toEqual({ contentDir: '', imageDir: 'images' });
   });
@@ -106,6 +116,37 @@ describe('repoPathForLink', () => {
   });
   it('falls back to the bare path when nothing matches', () => {
     expect(repoPathForLink('content/a.md', '/img/x.png', [])).toBe('img/x.png');
+  });
+});
+
+describe('ensureMarkdownExtension', () => {
+  it('leaves a markdown path alone', () => {
+    expect(ensureMarkdownExtension('content/posts/hello.md')).toBe('content/posts/hello.md');
+    expect(ensureMarkdownExtension('notes.markdown')).toBe('notes.markdown');
+  });
+
+  it('accepts any capitalisation of the extension', () => {
+    expect(ensureMarkdownExtension('A.MD')).toBe('A.MD');
+    expect(ensureMarkdownExtension('b.MarkDown')).toBe('b.MarkDown');
+  });
+
+  it('appends .md when the extension is missing', () => {
+    expect(ensureMarkdownExtension('Test2')).toBe('Test2.md');
+    expect(ensureMarkdownExtension('src/content/blog/Test2')).toBe('src/content/blog/Test2.md');
+  });
+
+  it('appends rather than replacing a non-markdown extension', () => {
+    // Never discard what the author typed — "post.txt" stays visible.
+    expect(ensureMarkdownExtension('post.txt')).toBe('post.txt.md');
+  });
+
+  it('is not fooled by a dot in a directory name', () => {
+    expect(ensureMarkdownExtension('v1.2/notes')).toBe('v1.2/notes.md');
+  });
+
+  it('leaves a path with no filename untouched', () => {
+    expect(ensureMarkdownExtension('content/')).toBe('content/');
+    expect(ensureMarkdownExtension('')).toBe('');
   });
 });
 
