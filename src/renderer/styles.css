@@ -880,46 +880,79 @@ select {
   color: #8a6100;
 }
 
+/* Mirrors #error-banner: the window is acrylic and body is transparent, so a
+   bar needs a near-opaque background of its own or the desktop shows through
+   and the whole thing washes out. */
 #commit-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 14px 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
+  gap: 10px;
+  margin: 10px 14px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(0, 120, 212, 0.28);
   border-radius: var(--radius);
-  background: var(--accent-soft);
+  background: rgba(232, 243, 253, 0.94);
+  color: var(--fg);
+  box-shadow: 0 12px 28px rgba(0, 120, 212, 0.12);
   font-size: 13px;
+  z-index: 3;
 }
 
 #commit-bar.hidden {
   display: none;
 }
 
+#commit-bar label {
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
 #commit-message {
   flex: 1;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid rgba(0, 120, 212, 0.32);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.9);
-  color: inherit;
+  background: #fff;
+  color: var(--fg);
   font: inherit;
 }
 
+#commit-message::placeholder {
+  color: var(--muted);
+}
+
+#commit-message:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
 #commit-bar button {
-  padding: 5px 12px;
-  border: 1px solid var(--border);
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  border: 1px solid rgba(0, 120, 212, 0.32);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.85);
-  color: inherit;
+  background: #fff;
+  color: var(--accent-strong);
   font: inherit;
   cursor: pointer;
+}
+
+#commit-bar button:hover {
+  background: var(--accent-soft);
 }
 
 #commit-bar #commit-go {
   border-color: transparent;
   background: var(--accent);
-  color: white;
+  color: #fff;
+  font-weight: 600;
+}
+
+#commit-bar #commit-go:hover {
+  background: var(--accent-strong);
 }
 
 .gh-actions {
