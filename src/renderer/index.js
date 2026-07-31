@@ -3,7 +3,7 @@ import 'katex/dist/katex.min.css';
 import { createEditor, getDoc, setDoc } from './editor.js';
 import { initUI, registerFileActions, setImageHandler } from './ui.js';
 import { setAssetResolver } from './preview.js';
-import { imageLink, repoPathForLink, uniquePath } from './github-paths.js';
+import { imageLink, repoPathForLink, uniquePath, safeAssetName } from './github-paths.js';
 import { createFrontmatterPanel } from './fmpanel.js';
 import { splitFrontmatter, joinDoc } from './frontmatter.js';
 import { createGitHubPanel } from './github-panel.js';
@@ -280,7 +280,9 @@ async function pickImage() {
   }
   const { imageDir, imageLinkStyle } = ghPanel.getConfig();
   const taken = [...ghPanel.getPaths(), ...pendingImages.map((i) => i.path)];
-  const path = uniquePath(imageDir ? `${imageDir}/${picked.name}` : picked.name, taken);
+  // The stored name is web-safe; the alt text keeps the name as chosen.
+  const fileName = safeAssetName(picked.name);
+  const path = uniquePath(imageDir ? `${imageDir}/${fileName}` : fileName, taken);
   pendingImages.push({ path, base64: picked.base64, dataUrl: picked.dataUrl });
   return { url: imageLink(source.path, path, imageLinkStyle), name: picked.name };
 }

@@ -9,6 +9,7 @@ import {
   wantsImagePicker,
   ensureMarkdownExtension,
   sanitizeBranchName,
+  safeAssetName,
 } from '../src/renderer/github-paths.js';
 
 describe('slugify', () => {
@@ -117,6 +118,54 @@ describe('repoPathForLink', () => {
   });
   it('falls back to the bare path when nothing matches', () => {
     expect(repoPathForLink('content/a.md', '/img/x.png', [])).toBe('img/x.png');
+  });
+  it('decodes the percent-encoding markdown-it puts in the rendered src', () => {
+    expect(repoPathForLink('content/a.md', 'img/My%20File.png', []))
+      .toBe('content/img/My File.png');
+  });
+  it('survives a stray percent that is not an escape', () => {
+    expect(repoPathForLink('content/a.md', 'img/100%.png', []))
+      .toBe('content/img/100%.png');
+  });
+});
+
+describe('safeAssetName', () => {
+  it('replaces the spaces that would break the markdown link', () => {
+    // Both of these came off a real camera roll and broke a published post:
+    // a space in the destination stops it being a link at all.
+    expect(safeAssetName('Meadow 2 copy_01_00_11_06.jpg'))
+      .toBe('meadow-2-copy_01_00_11_06.jpg');
+    expect(safeAssetName('Screenshot_20260722_200610_Shop Samsung.jpg'))
+      .toBe('screenshot_20260722_200610_shop-samsung.jpg');
+  });
+
+  it('keeps underscores, digits and hyphens', () => {
+    expect(safeAssetName('a_b-c1.png')).toBe('a_b-c1.png');
+  });
+
+  it('lowercases so a case-insensitive desktop cannot disagree with the server', () => {
+    expect(safeAssetName('Photo.JPG')).toBe('photo.jpg');
+  });
+
+  it('strips punctuation and accents', () => {
+    expect(safeAssetName("René's café (final).jpeg")).toBe('renes-cafe-final.jpeg');
+  });
+
+  it('collapses runs and trims separators', () => {
+    expect(safeAssetName('  too   many   gaps .png')).toBe('too-many-gaps.png');
+  });
+
+  it('handles a name with no extension', () => {
+    expect(safeAssetName('My Screenshot')).toBe('my-screenshot');
+  });
+
+  it('does not treat a leading dot as an extension', () => {
+    expect(safeAssetName('.hidden')).toBe('hidden');
+  });
+
+  it('falls back when the stem has nothing usable', () => {
+    expect(safeAssetName('!!!.png')).toBe('image.png');
+    expect(safeAssetName('')).toBe('image');
   });
 });
 

@@ -9,6 +9,15 @@ const MARKDOWN_EXT = /\.(md|markdown)$/i;
 // Directories a static-site generator publishes at the site root.
 const PUBLISH_ROOTS = ['static', 'public'];
 
+// decodeURIComponent throws on a stray '%', which a file name may well contain.
+function decodeUrlPath(src) {
+  try {
+    return decodeURIComponent(src);
+  } catch {
+    return src;
+  }
+}
+
 // Frontmatter keys that conventionally hold an image path. Deliberately
 // "picture" rather than "pic", so an ordinary key like "topic" is not caught.
 const IMAGE_KEY = /(hero|cover|image|img|thumb|banner|photo|picture|logo|avatar)/i;
@@ -79,6 +88,33 @@ export function uniquePath(path, existingPaths) {
   return `${stem}-${n}${ext}`;
 }
 
+// Makes an uploaded file name safe to put in a markdown link. A space is the
+// one that actually bites: `![a](dir/My File.png)` is not an image at all to
+// a CommonMark parser, it is literal text, so the picture silently does not
+// render. Lowercasing also keeps a case-insensitive desktop from disagreeing
+// with a case-sensitive web server about the URL.
+export function safeAssetName(name) {
+  const raw = String(name ?? '');
+  const dot = raw.lastIndexOf('.');
+  const hasExt = dot > 0;
+  const stem = hasExt ? raw.slice(0, dot) : raw;
+  const ext = hasExt ? raw.slice(dot + 1) : '';
+
+  const clean = (part) =>
+    part
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/['‘’]/g, '')
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/-{2,}/g, '-')
+      .replace(/^[-.]+|[-.]+$/g, '');
+
+  const safeStem = clean(stem) || 'image';
+  const safeExt = clean(ext);
+  return safeExt ? `${safeStem}.${safeExt}` : safeStem;
+}
+
 export function imageLink(postPath, imagePath, style) {
   if (style === 'site-absolute') {
     const root = PUBLISH_ROOTS.find((r) => imagePath.startsWith(`${r}/`));
@@ -98,6 +134,10 @@ export function imageLink(postPath, imagePath, style) {
 // /img/x.png), so recovering the repo path means testing the known file list
 // against each publish root.
 export function repoPathForLink(postPath, src, knownPaths = []) {
+  // markdown-it percent-encodes the src it renders, so a repository file that
+  // genuinely has a space in its name arrives here as "My%20File.png" and
+  // would never match the real path.
+  src = decodeUrlPath(src);
   if (src.startsWith('/')) {
     const bare = src.slice(1);
     const known = new Set(knownPaths);

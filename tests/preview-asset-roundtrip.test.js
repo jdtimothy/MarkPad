@@ -53,6 +53,30 @@ describe('asset resolution round trip', () => {
     expect(htmlToMarkdown(container)).toBe('![a](https://example.com/x.png)');
   });
 
+  it('keeps a destination with spaces a valid link across the round trip', async () => {
+    // Without the angle brackets this stops parsing as an image, renders as
+    // literal text, and comes back escaped as \![alt\]\(...\) on the next sync.
+    const container = document.createElement('div');
+    container.innerHTML = '<p><img src="../../assets/blog/My File.png" alt="a"></p>';
+
+    const doc = htmlToMarkdown(container);
+    expect(doc).toBe('![a](<../../assets/blog/My File.png>)');
+
+    // It must still be an image after rendering — that is the property that
+    // failed before. markdown-it normalizes the destination to percent
+    // encoding, which is equally valid.
+    await renderPreview(container, doc);
+    expect(container.querySelector('img')).not.toBeNull();
+
+    // And the form it settles on has to be stable, or every view switch
+    // would rewrite the document a little more.
+    const settled = htmlToMarkdown(container);
+    expect(settled).toBe('![a](../../assets/blog/My%20File.png)');
+    await renderPreview(container, settled);
+    expect(htmlToMarkdown(container)).toBe(settled);
+    expect(container.querySelector('img')).not.toBeNull();
+  });
+
   it('serializes a newly inserted image from its own src', () => {
     // An image inserted by the toolbar while in rendered mode has no
     // resolver bookkeeping on it yet.

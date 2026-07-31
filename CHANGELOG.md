@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Contents API answers 200 with empty content above that size, producing a
   truncated data URL; committed images are now read through the Blobs API,
   which carries up to 100 MB.
+- An image whose file name contained a space did not display and corrupted the
+  document. `![a](dir/My File.png)` is not a link to a CommonMark parser, so it
+  stayed literal text, and switching views then escaped it to `\!\[a\]\(...\)`.
+  Uploaded files are now given web-safe names, a destination containing spaces
+  is wrapped in angle brackets when serializing, and percent-encoded sources
+  are decoded before being matched against repository paths.
 - "New branch" did nothing at all. It asked for the name with `window.prompt`,
   which Electron does not implement — the call threw, and because the click
   handler was async the rejection was swallowed with no visible error. The
