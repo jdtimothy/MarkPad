@@ -40,3 +40,91 @@ export function templateFromRows(rows, today) {
       value: row.value === today ? TODAY_TOKEN : row.value,
     }));
 }
+
+const STORAGE_KEY = 'markpad.templates';
+const VERSION = 1;
+
+function emptyData() {
+  return { version: VERSION, seeded: false, templates: {} };
+}
+
+// Any failure here — storage disabled, corrupt JSON, a payload of the wrong
+// shape — degrades to "no templates" rather than breaking the panel.
+function read(store) {
+  let parsed;
+  try {
+    parsed = JSON.parse(store.getItem(STORAGE_KEY) ?? '');
+  } catch {
+    return emptyData();
+  }
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    Array.isArray(parsed) ||
+    typeof parsed.templates !== 'object' ||
+    parsed.templates === null ||
+    Array.isArray(parsed.templates)
+  ) {
+    return emptyData();
+  }
+  return {
+    version: parsed.version ?? VERSION,
+    seeded: Boolean(parsed.seeded),
+    templates: parsed.templates,
+  };
+}
+
+function write(store, data) {
+  try {
+    store.setItem(STORAGE_KEY, JSON.stringify({ ...data, version: VERSION }));
+  } catch {
+    /* storage unavailable — the feature degrades, editing does not */
+  }
+}
+
+// The seeded flag is why deleting Basic sticks. Keying off an empty list
+// instead would resurrect it on the next launch.
+export function ensureSeeded(store, basicRows) {
+  const data = read(store);
+  if (data.seeded) return;
+  data.seeded = true;
+  data.templates = { Basic: basicRows, ...data.templates };
+  write(store, data);
+}
+
+export function listTemplates(store) {
+  const { templates } = read(store);
+  return Object.entries(templates).map(([name, rows]) => ({ name, rows }));
+}
+
+export function saveTemplate(store, name, rows) {
+  const trimmed = String(name ?? '').trim();
+  if (!trimmed || !Array.isArray(rows) || rows.length === 0) return false;
+  const data = read(store);
+  data.templates[trimmed] = rows;
+  write(store, data);
+  return true;
+}
+
+export function deleteTemplate(store, name) {
+  const data = read(store);
+  if (!(name in data.templates)) return false;
+  delete data.templates[name];
+  write(store, data);
+  return true;
+}
+
+// Rebuilds the object rather than deleting and re-adding, so a renamed
+// template keeps its position in the list instead of jumping to the end.
+export function renameTemplate(store, oldName, newName) {
+  const trimmed = String(newName ?? '').trim();
+  const data = read(store);
+  if (!trimmed || !(oldName in data.templates) || trimmed in data.templates) return false;
+  const renamed = {};
+  for (const [name, rows] of Object.entries(data.templates)) {
+    renamed[name === oldName ? trimmed : name] = rows;
+  }
+  data.templates = renamed;
+  write(store, data);
+  return true;
+}

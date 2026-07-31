@@ -1,5 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { applyTemplate, expandDefaults, templateFromRows } from '../src/renderer/templates.js';
+import {
+  applyTemplate,
+  expandDefaults,
+  templateFromRows,
+  ensureSeeded,
+  listTemplates,
+  saveTemplate,
+  deleteTemplate,
+  renameTemplate,
+} from '../src/renderer/templates.js';
+
+// Minimal stand-in for localStorage.
+function fakeStore(initial = {}) {
+  const data = { ...initial };
+  return {
+    data,
+    getItem: (k) => (k in data ? data[k] : null),
+    setItem: (k, v) => { data[k] = String(v); },
+  };
+}
+
+const KEY = 'markpad.templates';
+const BASIC = [{ key: 'title', value: '' }, { key: 'date', value: '{today}' }];
 
 const row = (key, value) => ({ key, value });
 
@@ -119,5 +141,132 @@ describe('templateFromRows', () => {
   it('keeps empty values, which are a legitimate default to fill in', () => {
     expect(templateFromRows([row('title', '')], '2026-07-31'))
       .toEqual([row('title', '')]);
+  });
+});
+
+describe('template storage', () => {
+  it('starts empty', () => {
+    expect(listTemplates(fakeStore())).toEqual([]);
+  });
+
+  it('saves and lists a template', () => {
+    const store = fakeStore();
+    expect(saveTemplate(store, 'Blog post', [{ key: 'title', value: '' }])).toBe(true);
+    expect(listTemplates(store)).toEqual([
+      { name: 'Blog post', rows: [{ key: 'title', value: '' }] },
+    ]);
+  });
+
+  it('trims the name', () => {
+    const store = fakeStore();
+    saveTemplate(store, '  Spaced  ', [{ key: 'a', value: '' }]);
+    expect(listTemplates(store)[0].name).toBe('Spaced');
+  });
+
+  it('rejects an empty or whitespace-only name', () => {
+    const store = fakeStore();
+    expect(saveTemplate(store, '   ', [{ key: 'a', value: '' }])).toBe(false);
+    expect(saveTemplate(store, '', [{ key: 'a', value: '' }])).toBe(false);
+    expect(listTemplates(store)).toEqual([]);
+  });
+
+  it('rejects a template with no rows', () => {
+    const store = fakeStore();
+    expect(saveTemplate(store, 'Empty', [])).toBe(false);
+    expect(listTemplates(store)).toEqual([]);
+  });
+
+  it('overwrites a template of the same name in place', () => {
+    const store = fakeStore();
+    saveTemplate(store, 'A', [{ key: 'one', value: '' }]);
+    saveTemplate(store, 'A', [{ key: 'two', value: '' }]);
+    expect(listTemplates(store)).toEqual([
+      { name: 'A', rows: [{ key: 'two', value: '' }] },
+    ]);
+  });
+
+  it('deletes', () => {
+    const store = fakeStore();
+    saveTemplate(store, 'A', [{ key: 'a', value: '' }]);
+    expect(deleteTemplate(store, 'A')).toBe(true);
+    expect(listTemplates(store)).toEqual([]);
+  });
+
+  it('reports deleting something that is not there', () => {
+    expect(deleteTemplate(fakeStore(), 'Nope')).toBe(false);
+  });
+
+  it('renames, keeping the rows', () => {
+    const store = fakeStore();
+    saveTemplate(store, 'Old', [{ key: 'a', value: '1' }]);
+    expect(renameTemplate(store, 'Old', 'New')).toBe(true);
+    expect(listTemplates(store)).toEqual([
+      { name: 'New', rows: [{ key: 'a', value: '1' }] },
+    ]);
+  });
+
+  it('refuses a rename onto an existing name, or from one that is missing', () => {
+    const store = fakeStore();
+    saveTemplate(store, 'A', [{ key: 'a', value: '' }]);
+    saveTemplate(store, 'B', [{ key: 'b', value: '' }]);
+    expect(renameTemplate(store, 'A', 'B')).toBe(false);
+    expect(renameTemplate(store, 'Missing', 'C')).toBe(false);
+    expect(listTemplates(store).map((t) => t.name)).toEqual(['A', 'B']);
+  });
+
+  it('refuses a rename to a blank name', () => {
+    const store = fakeStore();
+    saveTemplate(store, 'A', [{ key: 'a', value: '' }]);
+    expect(renameTemplate(store, 'A', '  ')).toBe(false);
+  });
+});
+
+describe('seeding', () => {
+  it('adds Basic on first run', () => {
+    const store = fakeStore();
+    ensureSeeded(store, BASIC);
+    expect(listTemplates(store)).toEqual([{ name: 'Basic', rows: BASIC }]);
+  });
+
+  it('does not add Basic a second time', () => {
+    const store = fakeStore();
+    ensureSeeded(store, BASIC);
+    saveTemplate(store, 'Basic', [{ key: 'changed', value: '' }]);
+    ensureSeeded(store, BASIC);
+    expect(listTemplates(store)[0].rows).toEqual([{ key: 'changed', value: '' }]);
+  });
+
+  it('does not resurrect Basic after it is deleted', () => {
+    const store = fakeStore();
+    ensureSeeded(store, BASIC);
+    deleteTemplate(store, 'Basic');
+    ensureSeeded(store, BASIC);
+    expect(listTemplates(store)).toEqual([]);
+  });
+});
+
+describe('storage resilience', () => {
+  it('treats corrupt JSON as empty', () => {
+    expect(listTemplates(fakeStore({ [KEY]: 'not json' }))).toEqual([]);
+  });
+
+  it('treats a valid but wrongly shaped payload as empty', () => {
+    expect(listTemplates(fakeStore({ [KEY]: '[1,2,3]' }))).toEqual([]);
+  });
+
+  it('survives a store that throws on read', () => {
+    const store = { getItem() { throw new Error('denied'); }, setItem() {} };
+    expect(listTemplates(store)).toEqual([]);
+  });
+
+  it('survives a store that throws on write', () => {
+    const store = { getItem: () => null, setItem() { throw new Error('full'); } };
+    expect(() => saveTemplate(store, 'A', [{ key: 'a', value: '' }])).not.toThrow();
+  });
+
+  it('writes the versioned shape', () => {
+    const store = fakeStore();
+    saveTemplate(store, 'A', [{ key: 'a', value: '' }]);
+    expect(JSON.parse(store.data[KEY])).toMatchObject({ version: 1, templates: { A: [{ key: 'a', value: '' }] } });
   });
 });
