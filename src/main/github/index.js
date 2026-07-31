@@ -2,6 +2,7 @@ const { ipcMain, shell } = require('electron');
 const { createClient } = require('./client.js');
 const { requestDeviceCode, pollForToken } = require('./auth.js');
 const vault = require('./vault.js');
+const repoApi = require('./repo.js');
 
 // The OAuth App client ID is a public value and safe to commit. Device flow
 // uses no client secret. Replace this placeholder with the real ID after
@@ -73,6 +74,21 @@ function registerGitHubHandlers() {
     if (/^https:\/\/(github\.com|www\.github\.com)\//.test(url)) await shell.openExternal(url);
     return { ok: true };
   });
+
+  // Error instances do not survive IPC structured cloning, so every repo
+  // operation returns a plain { ok, data } / { ok, error, code } envelope.
+  const wrap = (fn) => async (_event, ...args) => {
+    try {
+      return { ok: true, data: await fn(...args) };
+    } catch (err) {
+      return { ok: false, error: err.message, code: err.code || 'http_error', resetAt: err.resetAt ?? null };
+    }
+  };
+
+  ipcMain.handle('github:listRepos', wrap(() => repoApi.listRepos(client)));
+  ipcMain.handle('github:listBranches', wrap((repo) => repoApi.listBranches(client, repo)));
+  ipcMain.handle('github:listTree', wrap((repo, branch) => repoApi.listTree(client, repo, branch)));
+  ipcMain.handle('github:readFile', wrap((repo, branch, path) => repoApi.readFile(client, repo, branch, path)));
 }
 
 module.exports = { registerGitHubHandlers, getClient: () => client, hasToken: () => Boolean(token) };

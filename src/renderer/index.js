@@ -23,8 +23,23 @@ ui = initUI(view, () => refreshTitle());
 fmPanel = createFrontmatterPanel(document.getElementById('fm-panel'), () =>
   refreshTitle()
 );
+// Temporary until Task 7 introduces the document source: a repo file opens
+// into the buffer but is not yet backed by a saveable source, so Ctrl+S
+// falls through to Save As.
+async function openRepoFile({ repo, branch, path, sha, content }) {
+  if (!(await guardDirty())) return;
+  const normalized = content.replace(/\r\n/g, '\n');
+  const { fm, body } = splitFrontmatter(normalized);
+  fmPanel.setFrontmatter(fm);
+  setDoc(view, body);
+  await ui.refreshRendered();
+  currentPath = null;
+  markSaved(null, path.split('/').pop());
+}
+
 const ghPanel = createGitHubPanel(document.getElementById('gh-sidebar'), {
   onError: (msg) => ui.showError(msg),
+  onOpenFile: openRepoFile,
 });
 ghPanel.refreshAccount();
 

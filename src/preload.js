@@ -18,5 +18,9 @@ contextBridge.exposeInMainWorld('markpad', {
     signOut: () => ipcRenderer.invoke('github:signOut'),
     openExternal: (url) => ipcRenderer.invoke('github:openExternal', url),
     onDeviceCode: (cb) => ipcRenderer.on('github:device-code', (_e, payload) => cb(payload)),
+    listRepos: () => ipcRenderer.invoke('github:listRepos'),
+    listBranches: (repo) => ipcRenderer.invoke('github:listBranches', repo),
+    listTree: (repo, branch) => ipcRenderer.invoke('github:listTree', repo, branch),
+    readFile: (repo, branch, path) => ipcRenderer.invoke('github:readFile', repo, branch, path),
   },
 });

@@ -830,3 +830,45 @@ select {
   letter-spacing: 4px;
   text-align: center;
 }
+
+.gh-select {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.82);
+  color: inherit;
+  font: inherit;
+}
+
+.gh-tree {
+  user-select: none;
+}
+
+.gh-node {
+  padding: 3px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gh-node:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.gh-node.open {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.gh-dir {
+  font-weight: 600;
+}
+
+.gh-warning {
+  margin-bottom: 6px;
+  color: #8a6100;
+}
