@@ -745,6 +745,47 @@ select {
   font: inherit;
 }
 
+#template-manage-list {
+  min-width: 280px;
+  margin: 8px 0 12px;
+}
+
+.fm-manage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.fm-manage-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fm-manage-row button {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fm-manage-row .fm-manage-delete:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.fm-manage-empty {
+  margin: 8px 0;
+  color: var(--muted);
+}
+
 .fm-row .fm-warn {
   flex: 0 0 auto;
   color: #8a6100;

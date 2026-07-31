@@ -217,3 +217,90 @@ describe('save as template', () => {
     expect(templateNames(root)).toContain('Fresh');
   });
 });
+
+function installManageDialog() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <dialog id="template-manage-dialog">
+      <h3>Templates</h3>
+      <div id="template-manage-list"></div>
+      <div class="dialog-buttons">
+        <button id="template-manage-close" type="button">Close</button>
+      </div>
+    </dialog>
+  `);
+  const dialog = document.getElementById('template-manage-dialog');
+  dialog.showModal = function () { this.open = true; };
+  dialog.close = function () { this.open = false; this.dispatchEvent(new Event('close')); };
+  return dialog;
+}
+
+const manageRows = () =>
+  [...document.querySelectorAll('.fm-manage-row')].map(
+    (r) => r.querySelector('.fm-manage-name').textContent
+  );
+
+describe('manage templates', () => {
+  it('lists every template', () => {
+    installDialog();
+    const manage = installManageDialog();
+    const { root } = mount(fakeStore(seeded({ A: [{ key: 'a', value: '' }], B: [{ key: 'b', value: '' }] })));
+
+    choose(root, '__manage__');
+    expect(manage.open).toBe(true);
+    expect(manageRows()).toEqual(['A', 'B']);
+  });
+
+  it('does not apply anything when Manage is chosen', () => {
+    installDialog();
+    installManageDialog();
+    const { root, panel } = mount(fakeStore(seeded({ A: [{ key: 'a', value: '' }] })));
+    choose(root, '__manage__');
+    expect(panel.getFrontmatter()).toBeNull();
+  });
+
+  it('deletes after confirmation', () => {
+    installDialog();
+    installManageDialog();
+    const store = fakeStore(seeded({ A: [{ key: 'a', value: '' }] }));
+    const { root } = mount(store);
+    const confirm = window.confirm;
+    window.confirm = () => true;
+
+    choose(root, '__manage__');
+    document.querySelector('.fm-manage-delete').click();
+
+    window.confirm = confirm;
+    expect(manageRows()).toEqual([]);
+    expect(templateNames(root)).toEqual([]);
+  });
+
+  it('keeps the template when the deletion is declined', () => {
+    installDialog();
+    installManageDialog();
+    const { root } = mount(fakeStore(seeded({ A: [{ key: 'a', value: '' }] })));
+    const confirm = window.confirm;
+    window.confirm = () => false;
+
+    choose(root, '__manage__');
+    document.querySelector('.fm-manage-delete').click();
+
+    window.confirm = confirm;
+    expect(manageRows()).toEqual(['A']);
+  });
+
+  it('renames through the name dialog', async () => {
+    const nameDialog = installDialog();
+    installManageDialog();
+    const store = fakeStore(seeded({ A: [{ key: 'a', value: '' }] }));
+    const { root } = mount(store);
+
+    choose(root, '__manage__');
+    document.querySelector('.fm-manage-rename').click();
+    answerDialog(nameDialog, 'Renamed');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(manageRows()).toEqual(['Renamed']);
+    expect(templateNames(root)).toContain('Renamed');
+  });
+});

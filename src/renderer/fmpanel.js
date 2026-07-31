@@ -10,6 +10,8 @@ import {
   ensureSeeded,
   listTemplates,
   saveTemplate,
+  deleteTemplate,
+  renameTemplate,
   templateFromRows,
 } from './templates.js';
 
@@ -70,6 +72,64 @@ export function createFrontmatterPanel(
     render();
   }
 
+  function renderManageList() {
+    const list = document.getElementById('template-manage-list');
+    list.innerHTML = '';
+    const templates = listTemplates(store);
+
+    if (templates.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'fm-manage-empty';
+      empty.textContent = 'No templates yet. Save one from a document\'s frontmatter.';
+      list.append(empty);
+      return;
+    }
+
+    for (const template of templates) {
+      const row = document.createElement('div');
+      row.className = 'fm-manage-row';
+
+      const name = document.createElement('span');
+      name.className = 'fm-manage-name';
+      name.textContent = template.name;
+
+      const rename = document.createElement('button');
+      rename.className = 'fm-manage-rename';
+      rename.textContent = 'Rename';
+      rename.addEventListener('click', async () => {
+        const next = await askName('Rename template', 'Rename', template.name);
+        if (!next || next === template.name) return;
+        if (!renameTemplate(store, template.name, next)) {
+          window.alert(`Could not rename to "${next}" — that name is already taken.`);
+          return;
+        }
+        renderManageList();
+        render();
+      });
+
+      const remove = document.createElement('button');
+      remove.className = 'fm-manage-delete';
+      remove.textContent = 'Delete';
+      remove.addEventListener('click', () => {
+        if (!window.confirm(`Delete the template "${template.name}"?`)) return;
+        deleteTemplate(store, template.name);
+        renderManageList();
+        render();
+      });
+
+      row.append(name, rename, remove);
+      list.append(row);
+    }
+  }
+
+  function openManage() {
+    const dialog = document.getElementById('template-manage-dialog');
+    renderManageList();
+    document.getElementById('template-manage-close')
+      .addEventListener('click', () => dialog.close(), { once: true });
+    dialog.showModal();
+  }
+
   function renderTemplateBar() {
     const bar = document.createElement('div');
     bar.className = 'fm-template-bar';
@@ -87,12 +147,14 @@ export function createFrontmatterPanel(
     for (const template of listTemplates(store)) {
       select.append(new Option(template.name, template.name));
     }
+    select.append(new Option('Manage…', '__manage__'));
     select.addEventListener('change', () => {
       const chosen = select.value;
       // The control is an action, not a record of what the document is:
       // MarkPad cannot know a document still "is" a blog post once edited.
       select.selectedIndex = 0;
-      if (chosen) chooseTemplate(chosen);
+      if (chosen === '__manage__') openManage();
+      else if (chosen) chooseTemplate(chosen);
     });
 
     bar.append(label, select);
