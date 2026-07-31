@@ -4,6 +4,7 @@ import { createEditor, getDoc, setDoc } from './editor.js';
 import { initUI, registerFileActions } from './ui.js';
 import { createFrontmatterPanel } from './fmpanel.js';
 import { splitFrontmatter, joinDoc } from './frontmatter.js';
+import { createGitHubPanel } from './github-panel.js';
 
 let ui;
 let fmPanel;
@@ -22,6 +23,10 @@ ui = initUI(view, () => refreshTitle());
 fmPanel = createFrontmatterPanel(document.getElementById('fm-panel'), () =>
   refreshTitle()
 );
+const ghPanel = createGitHubPanel(document.getElementById('gh-sidebar'), {
+  onError: (msg) => ui.showError(msg),
+});
+ghPanel.refreshAccount();
 
 // The document on disk = frontmatter block (panel) + body (editor).
 function fullDoc() {

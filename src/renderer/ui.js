@@ -446,7 +446,9 @@ export function initUI(view, onRenderedChange = () => {}) {
     if (!e.ctrlKey || e.altKey) return;
     const key = e.key.toLowerCase();
     const shortcuts = {
-      b: actions.bold,
+      b: e.shiftKey
+        ? () => document.getElementById('gh-sidebar')?.classList.toggle('hidden')
+        : actions.bold,
       i: actions.italic,
       k: actions.link,
       e: () => setMode(mode === 'edit' ? 'preview' : 'edit'),

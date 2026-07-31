@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron')
 const path = require('path');
 const fs = require('fs/promises');
 const { pathToFileURL } = require('url');
+const { registerGitHubHandlers } = require('./github/index.js');
 
 const FILE_FILTERS = [
   { name: 'Markdown', extensions: ['md', 'markdown'] },
@@ -150,5 +151,8 @@ ipcMain.on('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  registerGitHubHandlers();
+  createWindow();
+});
 app.on('window-all-closed', () => app.quit());

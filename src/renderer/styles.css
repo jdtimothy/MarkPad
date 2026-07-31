@@ -400,6 +400,7 @@ select {
 }
 
 #content {
+  display: flex;
   flex: 1;
   min-height: 0;
   margin: 0 14px;
@@ -413,6 +414,8 @@ select {
 
 #editor-pane,
 #preview-pane {
+  flex: 1;
+  min-width: 0;
   height: 100%;
 }
 
@@ -773,4 +776,57 @@ select {
   #status-bar {
     margin: 8px;
   }
+}
+
+/* GitHub sidebar */
+
+#gh-sidebar {
+  flex: 0 0 260px;
+  width: 260px;
+  overflow-y: auto;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  background: var(--chrome);
+  font-size: 13px;
+}
+
+#gh-sidebar.hidden {
+  display: none;
+}
+
+.gh-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gh-login {
+  flex: 1;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#gh-sidebar button {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.82);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+#gh-sidebar button:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.device-code {
+  padding: 12px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 26px;
+  letter-spacing: 4px;
+  text-align: center;
 }

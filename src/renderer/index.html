@@ -71,6 +71,7 @@
   <section id="fm-panel"></section>
 
   <main id="content">
+    <aside id="gh-sidebar" class="hidden"></aside>
     <div id="editor-pane" class="hidden"></div>
     <div id="preview-pane" contenteditable="true" spellcheck="true"></div>
   </main>
@@ -91,6 +92,17 @@
         <button value="ok" id="url-ok">Insert</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="device-dialog">
+    <h3>Connect to GitHub</h3>
+    <p>Enter this code on GitHub to authorize MarkPad:</p>
+    <div id="device-code" class="device-code">········</div>
+    <div class="dialog-buttons">
+      <button id="device-copy" type="button">Copy code</button>
+      <button id="device-open" type="button">Open GitHub</button>
+      <button id="device-cancel" type="button">Cancel</button>
+    </div>
   </dialog>
 
   <script src="../../dist/renderer.js"></script>
