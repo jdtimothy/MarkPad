@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Frontmatter templates: apply a saved set of frontmatter keys to a document,
+  save the current frontmatter as a named template, and rename or delete
+  templates. Applying only adds keys that are missing and never overwrites a
+  value. Templates are stored in MarkPad, so they work for local files as well
+  as repository documents.
+- A frontmatter property with a key but no value is flagged, because an empty
+  value becomes null in YAML and most site generators reject it.
 - Edit, commit and publish markdown files directly from a GitHub repository.
   Connect via OAuth device flow, browse a repository's markdown files in a
   `Ctrl+Shift+B` sidebar, and commit changes back to a chosen branch on save.

@@ -63,6 +63,10 @@ return a plain `{ ok, data }` / `{ ok, error, code }` envelope over IPC because
 
 `frontmatter.js` is pure and **deliberately uses no YAML library** (see the design spec). It handles only flat `key: value` pairs; any line it can't parse is preserved verbatim as a `{ raw }` row so unknown/nested YAML is never destroyed. `fmpanel.js` renders the collapsible key-value editor. `rows === null` means "document has no frontmatter" (distinct from an empty frontmatter block).
 
+`templates.js` owns frontmatter templates — the pure merge plus `localStorage` persistence — and `frontmatter.js` deliberately knows nothing about it. **`applyTemplate` is additive by design:** it adds keys the document lacks and never overwrites a value or reorders a row, which is what makes applying a template safe at any time. Storage carries a `seeded` flag so deleting the built-in `Basic` template sticks across restarts; keying off an empty list instead would resurrect it. Storage functions take an injected store so tests never touch a real `localStorage`.
+
+A row with a key and an empty value is flagged in the panel, because that serializes to `key:` — YAML null — which schema-validating generators reject. The marker is visual only and never blocks a save.
+
 ### Design docs
 
 `docs/superpowers/specs/2026-07-07-markdown-editor-design.md` (design spec) and `docs/superpowers/plans/2026-07-07-markdown-editor.md` (implementation plan) capture the intended behavior and the rationale for choices like the no-YAML-library decision.
