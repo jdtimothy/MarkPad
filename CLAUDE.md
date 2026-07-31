@@ -38,6 +38,27 @@ The source of truth is always the markdown string in CodeMirror. In preview mode
 
 `index.js` is the orchestrator. A saved document = frontmatter block + body: `joinDoc(fmPanel.getFrontmatter(), getDoc(view))` (see `fullDoc()`). Dirtiness is `fullDoc() !== savedDoc` — a string comparison against the last-saved snapshot, not an event flag. The close guard is cooperative: main sends `close-requested`, the renderer runs `guardDirty()`, then replies with `confirmClose()`.
 
+### GitHub integration
+
+All GitHub HTTP lives in the **main** process (`src/main/github/`) and the
+OAuth token never crosses into the renderer — no IPC handler returns it, and
+the renderer only ever sees the account login and API results. The token is
+stored via Electron `safeStorage` in `vault.js`, the one GitHub file that
+imports Electron.
+
+Every write — save, new post, image upload, rename, delete — funnels through
+the single `commit()` primitive in `src/main/github/repo.js`, which builds a
+commit with the Git Data API (blob → tree → commit → update-ref). That is what
+makes each of those operations atomic and gives non-fast-forward conflict
+detection for free. **Adding a new kind of repository write means adding a
+caller of `commit()`, not a new endpoint.**
+
+`doc-source.js` is the local-vs-repo seam. `index.js` holds a `source` rather
+than a path, and `save()` delegates to it: `localSource` writes through the
+native dialogs, `repoSource` turns the buffer into a commit. Repo operations
+return a plain `{ ok, data }` / `{ ok, error, code }` envelope over IPC because
+`Error` instances do not survive structured cloning.
+
 ### Frontmatter
 
 `frontmatter.js` is pure and **deliberately uses no YAML library** (see the design spec). It handles only flat `key: value` pairs; any line it can't parse is preserved verbatim as a `{ raw }` row so unknown/nested YAML is never destroyed. `fmpanel.js` renders the collapsible key-value editor. `rows === null` means "document has no frontmatter" (distinct from an empty frontmatter block).

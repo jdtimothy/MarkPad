@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Edit, commit and publish markdown files directly from a GitHub repository.
+  Connect via OAuth device flow, browse a repository's markdown files in a
+  `Ctrl+Shift+B` sidebar, and commit changes back to a chosen branch on save.
+- Every write — save, new post, image upload, rename, delete — is a single
+  atomic commit built on the Git Data API, so a post and its images land
+  together and a rename is one commit rather than two.
+- Conflict detection when a file or branch changed on GitHub since it was
+  opened, with overwrite / reload / open-on-GitHub / cancel resolution.
+- Branch creation and pull request creation from the sidebar.
+- Per-repository settings for the content folder, image folder, and image
+  link style, stored locally rather than in the repository.
+
 ## [1.0.0] - 2026-07-08
 
 ### Added
