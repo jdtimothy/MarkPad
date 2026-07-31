@@ -1,3 +1,5 @@
+const { GitHubError } = require('./client.js');
+
 async function listRepos(client) {
   const repos = await client.request('GET', '/user/repos', {
     query: { sort: 'updated', per_page: '100', affiliation: 'owner,collaborator,organization_member' },
@@ -33,4 +35,55 @@ function encodePath(path) {
   return path.split('/').map(encodeURIComponent).join('/');
 }
 
-module.exports = { listRepos, listBranches, listTree, readFile, encodePath };
+async function getHead(client, repo, branch) {
+  const ref = await client.request('GET', `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`);
+  const headSha = ref.object.sha;
+  const headCommit = await client.request('GET', `/repos/${repo}/git/commits/${headSha}`);
+  return { headSha, treeSha: headCommit.tree.sha };
+}
+
+// The single write primitive: every save, new post, image upload, rename and
+// delete funnels through here, so each becomes one atomic commit.
+async function commit(client, { repo, branch, message, files, expectedHeadSha }) {
+  const ref = await client.request('GET', `/repos/${repo}/git/ref/heads/${encodeURIComponent(branch)}`);
+  const headSha = ref.object.sha;
+
+  if (expectedHeadSha && headSha !== expectedHeadSha) {
+    throw new GitHubError({
+      status: 409,
+      code: 'conflict',
+      message: 'The branch has moved since you loaded it.',
+    });
+  }
+
+  const headCommit = await client.request('GET', `/repos/${repo}/git/commits/${headSha}`);
+
+  const tree = [];
+  const blobShas = {};
+  for (const file of files) {
+    if (file.delete) {
+      tree.push({ path: file.path, mode: '100644', type: 'blob', sha: null });
+      continue;
+    }
+    const content = file.contentBase64 ?? Buffer.from(file.content, 'utf-8').toString('base64');
+    const blob = await client.request('POST', `/repos/${repo}/git/blobs`, {
+      body: { content, encoding: 'base64' },
+    });
+    blobShas[file.path] = blob.sha;
+    tree.push({ path: file.path, mode: '100644', type: 'blob', sha: blob.sha });
+  }
+
+  const newTree = await client.request('POST', `/repos/${repo}/git/trees`, {
+    body: { base_tree: headCommit.tree.sha, tree },
+  });
+  const newCommit = await client.request('POST', `/repos/${repo}/git/commits`, {
+    body: { message, tree: newTree.sha, parents: [headSha] },
+  });
+  await client.request('PATCH', `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
+    body: { sha: newCommit.sha, force: false },
+  });
+
+  return { commitSha: newCommit.sha, headSha: newCommit.sha, blobShas };
+}
+
+module.exports = { listRepos, listBranches, listTree, readFile, encodePath, getHead, commit };
