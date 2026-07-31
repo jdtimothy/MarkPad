@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Contents API answers 200 with empty content above that size, producing a
   truncated data URL; committed images are now read through the Blobs API,
   which carries up to 100 MB.
+- "New branch" did nothing at all. It asked for the name with `window.prompt`,
+  which Electron does not implement — the call threw, and because the click
+  handler was async the rejection was swallowed with no visible error. The
+  prompt now uses the app's own dialog, the name is sanitized into something
+  git will accept, and a duplicate name is reported before the request.
+- Failures inside sidebar actions are reported instead of silently discarded.
 - The rendered view re-downloaded every image on each re-render. Resolved
   images are cached for the open document, and images just committed are kept
   in memory rather than fetched back from GitHub.

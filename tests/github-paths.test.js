@@ -8,6 +8,7 @@ import {
   repoPathForLink,
   wantsImagePicker,
   ensureMarkdownExtension,
+  sanitizeBranchName,
 } from '../src/renderer/github-paths.js';
 
 describe('slugify', () => {
@@ -116,6 +117,47 @@ describe('repoPathForLink', () => {
   });
   it('falls back to the bare path when nothing matches', () => {
     expect(repoPathForLink('content/a.md', '/img/x.png', [])).toBe('img/x.png');
+  });
+});
+
+describe('sanitizeBranchName', () => {
+  it('keeps a already-valid name untouched', () => {
+    expect(sanitizeBranchName('post/my-thing')).toBe('post/my-thing');
+  });
+
+  it('preserves case, because branch names are case sensitive', () => {
+    expect(sanitizeBranchName('Post/MyThing')).toBe('Post/MyThing');
+  });
+
+  it('turns whitespace into hyphens', () => {
+    expect(sanitizeBranchName('my new branch')).toBe('my-new-branch');
+    expect(sanitizeBranchName('  padded  ')).toBe('padded');
+  });
+
+  it('strips characters git forbids in a ref', () => {
+    expect(sanitizeBranchName('bad~name^with:junk?*[]\\')).toBe('bad-name-with-junk');
+  });
+
+  it('collapses repeated and edge slashes', () => {
+    expect(sanitizeBranchName('feat//double')).toBe('feat/double');
+    expect(sanitizeBranchName('/leading/')).toBe('leading');
+  });
+
+  it('refuses the sequences git rejects', () => {
+    expect(sanitizeBranchName('a..b')).toBe('a.b');
+    expect(sanitizeBranchName('a@{b')).toBe('a-b');
+  });
+
+  it('trims leading hyphens and dots and a trailing .lock', () => {
+    expect(sanitizeBranchName('-leading')).toBe('leading');
+    expect(sanitizeBranchName('.dotted')).toBe('dotted');
+    expect(sanitizeBranchName('mybranch.lock')).toBe('mybranch');
+  });
+
+  it('returns an empty string when nothing usable is left', () => {
+    expect(sanitizeBranchName('~~~')).toBe('');
+    expect(sanitizeBranchName('   ')).toBe('');
+    expect(sanitizeBranchName(undefined)).toBe('');
   });
 });
 

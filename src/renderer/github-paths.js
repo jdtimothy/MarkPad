@@ -34,6 +34,23 @@ export function slugify(text) {
   return slug || 'untitled';
 }
 
+// Trims a typed branch name down to something git will accept, so an ordinary
+// name like "my new post" does not come back as a 422 from the API. Slashes
+// survive, since "post/whatever" is a normal branch name; case survives too,
+// because refs are case sensitive. Returns '' when nothing usable is left.
+export function sanitizeBranchName(name) {
+  const cleaned = String(name ?? '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/@\{/g, '-') // git forbids the @{ sequence
+    .replace(/[~^:?*[\]\\]+/g, '-') // characters git rejects outright
+    .replace(/\.{2,}/g, '.') // ".." is not allowed in a ref
+    .replace(/\/{2,}/g, '/')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-./]+|[-./]+$/g, '');
+  return cleaned.replace(/\.lock$/i, '').replace(/[-./]+$/g, '');
+}
+
 // A post saved without a markdown extension is invisible to both the sidebar
 // tree and most static-site generators, so give it one. The typed name is
 // never discarded — a non-markdown extension is appended to, not replaced.

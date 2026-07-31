@@ -1,5 +1,10 @@
 import { buildTree } from './github-tree.js';
-import { guessDirs, uniquePath, ensureMarkdownExtension } from './github-paths.js';
+import {
+  guessDirs,
+  uniquePath,
+  ensureMarkdownExtension,
+  sanitizeBranchName,
+} from './github-paths.js';
 import { loadConfig, saveConfig } from './repo-config.js';
 
 export function createGitHubPanel(container, {
@@ -56,6 +61,14 @@ export function createGitHubPanel(container, {
     tree = [];
     render();
   }
+
+  // An async click handler that throws becomes an unhandled rejection, which
+  // shows the user nothing at all — the button simply appears dead. Every
+  // action below is wrapped so unexpected failures reach the error banner.
+  const guard = (fn) => (...args) =>
+    Promise.resolve()
+      .then(() => fn(...args))
+      .catch((err) => onError(`Something went wrong: ${err.message}`));
 
   // Unwraps the { ok, data } envelope from main, reporting failures once.
   // Implements the spec's error table: rate limits name their reset time, and
@@ -114,7 +127,10 @@ export function createGitHubPanel(container, {
     render();
   }
 
-  function askPath(labelText, initial, okText) {
+  // Electron does not implement window.prompt(), so every text prompt goes
+  // through this dialog. The preselection is path-aware, which is harmless
+  // for plain text like a branch name.
+  function askText(labelText, initial, okText) {
     const dialog = document.getElementById('path-dialog');
     const input = document.getElementById('path-input');
     document.getElementById('path-label').textContent = labelText;
@@ -135,7 +151,7 @@ export function createGitHubPanel(container, {
   async function newPost() {
     const dir = config.contentDir;
     const initial = dir ? `${dir}/untitled.md` : 'untitled.md';
-    const path = await askPath('New post path', initial, 'Create');
+    const path = await askText('New post path', initial, 'Create');
     if (!path) return;
     await onNewFile({
       repo: selectedRepo,
@@ -196,8 +212,23 @@ export function createGitHubPanel(container, {
   }
 
   async function newBranch() {
-    const name = window.prompt('New branch name');
-    if (!name) return;
+    const typed = await askText(
+      `New branch, starting from ${selectedBranch}`,
+      '',
+      'Create branch'
+    );
+    if (typed === null) return;
+
+    const name = sanitizeBranchName(typed);
+    if (!name) {
+      onError('That branch name has no usable characters.');
+      return;
+    }
+    if (branches.some((b) => b.name === name)) {
+      onError(`${selectedRepo} already has a branch called ${name}.`);
+      return;
+    }
+
     const head = await call(window.markpad.github.getHead(selectedRepo, selectedBranch));
     if (!head) return;
     const created = await call(window.markpad.github.createBranch(selectedRepo, name, head.headSha));
@@ -219,7 +250,7 @@ export function createGitHubPanel(container, {
     ]) {
       const item = document.createElement('button');
       item.textContent = label;
-      item.addEventListener('click', () => { menu.remove(); handler(); });
+      item.addEventListener('click', guard(() => { menu.remove(); return handler(); }));
       menu.append(item);
     }
 
@@ -230,7 +261,7 @@ export function createGitHubPanel(container, {
   }
 
   async function renameFile(path) {
-    const target = ensureMarkdownExtension(await askPath('Rename to', path, 'Rename') || '');
+    const target = ensureMarkdownExtension(await askText('Rename to', path, 'Rename') || '');
     if (!target || target === path) return;
     const newPath = uniquePath(target, allPaths);
 
@@ -279,7 +310,7 @@ export function createGitHubPanel(container, {
       row.dataset.path = node.path;
       if (node.type === 'file') {
         if (node.path === openPath) row.classList.add('open');
-        row.addEventListener('click', () => openFile(node.path));
+        row.addEventListener('click', guard(() => openFile(node.path)));
         row.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           showContextMenu(e.clientX, e.clientY, node.path);
@@ -302,7 +333,7 @@ export function createGitHubPanel(container, {
     if (!account) {
       const button = document.createElement('button');
       button.textContent = 'Connect to GitHub';
-      button.addEventListener('click', connect);
+      button.addEventListener('click', guard(connect));
       header.append(button);
       container.append(header);
       return;
@@ -313,7 +344,7 @@ export function createGitHubPanel(container, {
     who.textContent = account.login;
     const out = document.createElement('button');
     out.textContent = 'Sign out';
-    out.addEventListener('click', signOut);
+    out.addEventListener('click', guard(signOut));
     header.append(who, out);
     container.append(header);
 
@@ -348,18 +379,18 @@ export function createGitHubPanel(container, {
     if (selectedRepo && selectedBranch) {
       const add = document.createElement('button');
       add.textContent = '+ New post';
-      add.addEventListener('click', newPost);
+      add.addEventListener('click', guard(newPost));
       actions.append(add);
 
       const branchButton = document.createElement('button');
       branchButton.textContent = 'New branch';
-      branchButton.addEventListener('click', newBranch);
+      branchButton.addEventListener('click', guard(newBranch));
       actions.append(branchButton);
 
       if (selectedBranch !== defaultBranchOf(selectedRepo)) {
         const prButton = document.createElement('button');
         prButton.textContent = 'Create PR';
-        prButton.addEventListener('click', createPr);
+        prButton.addEventListener('click', guard(createPr));
         actions.append(prButton);
       }
     }
