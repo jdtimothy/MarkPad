@@ -66,10 +66,10 @@ export function createFrontmatterPanel(root, onChange, { onPickImage = null } = 
         raw.textContent = row.raw;
         rowEl.appendChild(raw);
       } else {
-        // Assigned below when a picker is available; re-evaluated on every
-        // keystroke so typing "hero" reveals the button without a re-render
-        // that would steal the caret.
+        // Both of these re-evaluate on every keystroke, toggling elements in
+        // place rather than re-rendering the row, which would steal the caret.
         let syncPicker = () => {};
+        let syncWarning = () => {};
 
         const key = document.createElement('input');
         key.className = 'fm-key';
@@ -78,6 +78,7 @@ export function createFrontmatterPanel(root, onChange, { onPickImage = null } = 
         key.addEventListener('input', () => {
           row.key = key.value;
           syncPicker();
+          syncWarning();
           onChange();
         });
         const value = document.createElement('input');
@@ -87,6 +88,7 @@ export function createFrontmatterPanel(root, onChange, { onPickImage = null } = 
         value.addEventListener('input', () => {
           row.value = value.value;
           syncPicker();
+          syncWarning();
           onChange();
         });
         const del = document.createElement('button');
@@ -99,7 +101,21 @@ export function createFrontmatterPanel(root, onChange, { onPickImage = null } = 
           onChange();
         });
 
-        rowEl.append(key, value);
+        // An empty value serializes to `key:`, which is null in YAML. Most
+        // site generators reject that where they would accept a missing key
+        // or an empty string. Visual only — it never blocks a save.
+        const warn = document.createElement('span');
+        warn.className = 'fm-warn';
+        warn.textContent = '⚠';
+        warn.title =
+          'This value is empty, so it becomes null in YAML. Most site generators reject that — give it a value or remove the row.';
+        syncWarning = () => {
+          const isEmpty = row.key.trim() !== '' && row.value.trim() === '';
+          warn.classList.toggle('hidden', !isEmpty);
+        };
+        syncWarning();
+
+        rowEl.append(key, value, warn);
 
         if (onPickImage) {
           const pick = document.createElement('button');
@@ -112,6 +128,7 @@ export function createFrontmatterPanel(root, onChange, { onPickImage = null } = 
             row.value = picked.url;
             value.value = picked.url;
             syncPicker();
+            syncWarning();
             onChange();
           });
           syncPicker = () => {

@@ -694,6 +694,14 @@ select {
   font-size: 12px;
 }
 
+.fm-row .fm-warn {
+  flex: 0 0 auto;
+  color: #8a6100;
+  font-size: 13px;
+  line-height: 1;
+  cursor: help;
+}
+
 .fm-row .fm-image {
   flex: 0 0 auto;
   padding: 4px 6px;
