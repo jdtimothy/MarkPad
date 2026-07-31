@@ -248,7 +248,9 @@ async function saveAs() {
 }
 
 setImageHandler(async () => {
-  if (source?.kind !== 'repo') return null;
+  // Local documents keep the original behaviour: pick a file, link it by
+  // file:// URL, upload nothing.
+  if (source?.kind !== 'repo') return window.markpad.openImage();
   const picked = await window.markpad.openImageData();
   if (!picked || picked.error) {
     if (picked?.error) ui.showError(`Could not read image: ${picked.error}`);
