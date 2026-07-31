@@ -36,7 +36,12 @@ export async function renderPreview(container, source) {
       const src = img.getAttribute('src');
       if (!src || /^(https?:|data:|file:)/i.test(src)) continue;
       const resolved = await resolveAsset(src);
-      if (resolved) img.setAttribute('src', resolved);
+      if (!resolved) continue;
+      // The preview pane is editable and serializes straight back to
+      // markdown, so the link the document should keep is recorded here.
+      // Without it, htmlToMarkdown would write the data URL into the file.
+      img.dataset.mdSrc = src;
+      img.setAttribute('src', resolved);
     }
   }
 }
