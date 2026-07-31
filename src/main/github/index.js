@@ -102,12 +102,13 @@ function registerGitHubHandlers() {
   // a cross-origin request, which keeps private repos working and the
   // renderer's CSP intact.
   ipcMain.handle('github:readAsset', wrap(async (repo, branch, assetPath) => {
-    const data = await client.request('GET', `/repos/${repo}/contents/${repoApi.encodePath(assetPath)}`, {
-      query: { ref: branch },
-    });
+    const { base64 } = await repoApi.readAsset(client, repo, branch, assetPath);
+    if (!base64) {
+      throw new Error(`${assetPath} came back empty`);
+    }
     const ext = assetPath.split('.').pop().toLowerCase();
     const mime = ext === 'svg' ? 'svg+xml' : ext === 'jpg' ? 'jpeg' : ext;
-    return { dataUrl: `data:image/${mime};base64,${data.content.replace(/\n/g, '')}` };
+    return { dataUrl: `data:image/${mime};base64,${base64}` };
   }));
 }
 

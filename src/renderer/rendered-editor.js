@@ -12,7 +12,12 @@ function inlineMarkdown(node) {
 
   const tag = node.tagName.toLowerCase();
   if (tag === 'br') return '\n';
-  if (tag === 'img') return `![${escapeMarkdown(node.alt || 'image')}](${node.getAttribute('src') || ''})`;
+  // data-md-src holds the original link when the preview swapped in resolved
+  // image bytes for display (see setAssetResolver in preview.js).
+  if (tag === 'img') {
+    const src = node.dataset?.mdSrc || node.getAttribute('src') || '';
+    return `![${escapeMarkdown(node.alt || 'image')}](${src})`;
+  }
 
   const inner = Array.from(node.childNodes).map(inlineMarkdown).join('');
   if (!inner && tag !== 'a') return '';

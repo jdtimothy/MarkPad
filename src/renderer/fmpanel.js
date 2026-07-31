@@ -3,8 +3,12 @@ import {
   serializeFrontmatter,
   defaultFrontmatter,
 } from './frontmatter.js';
+import { wantsImagePicker } from './github-paths.js';
 
-export function createFrontmatterPanel(root, onChange) {
+// onPickImage is optional: when supplied it resolves to { url } for an image
+// the caller has staged, or null if the user cancelled. Rows whose key or
+// value looks image-shaped grow a picker button that fills in the value.
+export function createFrontmatterPanel(root, onChange, { onPickImage = null } = {}) {
   let rows = null; // null = document has no frontmatter
   let collapsed = true;
 
@@ -62,12 +66,18 @@ export function createFrontmatterPanel(root, onChange) {
         raw.textContent = row.raw;
         rowEl.appendChild(raw);
       } else {
+        // Assigned below when a picker is available; re-evaluated on every
+        // keystroke so typing "hero" reveals the button without a re-render
+        // that would steal the caret.
+        let syncPicker = () => {};
+
         const key = document.createElement('input');
         key.className = 'fm-key';
         key.placeholder = 'key';
         key.value = row.key;
         key.addEventListener('input', () => {
           row.key = key.value;
+          syncPicker();
           onChange();
         });
         const value = document.createElement('input');
@@ -76,6 +86,7 @@ export function createFrontmatterPanel(root, onChange) {
         value.value = row.value;
         value.addEventListener('input', () => {
           row.value = value.value;
+          syncPicker();
           onChange();
         });
         const del = document.createElement('button');
@@ -87,7 +98,30 @@ export function createFrontmatterPanel(root, onChange) {
           render();
           onChange();
         });
-        rowEl.append(key, value, del);
+
+        rowEl.append(key, value);
+
+        if (onPickImage) {
+          const pick = document.createElement('button');
+          pick.className = 'fm-image';
+          pick.textContent = '🖼';
+          pick.title = 'Choose an image';
+          pick.addEventListener('click', async () => {
+            const picked = await onPickImage();
+            if (!picked?.url) return;
+            row.value = picked.url;
+            value.value = picked.url;
+            syncPicker();
+            onChange();
+          });
+          syncPicker = () => {
+            pick.classList.toggle('hidden', !wantsImagePicker(row.key, row.value));
+          };
+          syncPicker();
+          rowEl.append(pick);
+        }
+
+        rowEl.append(del);
       }
       list.appendChild(rowEl);
     });

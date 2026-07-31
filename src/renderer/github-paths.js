@@ -1,8 +1,25 @@
 const CONTENT_CANDIDATES = ['src/content', 'content', '_posts', 'posts', 'src/pages'];
-const IMAGE_CANDIDATES = ['static', 'public', 'assets', 'src/assets', 'images'];
+// `src/assets` leads because a repo that has it is Astro-shaped, where images
+// referenced from content go through the asset pipeline and `public/` is for
+// files served verbatim. Everything after it keeps the generic ordering.
+const IMAGE_CANDIDATES = ['src/assets', 'static', 'public', 'assets', 'images'];
+
+const MARKDOWN_EXT = /\.(md|markdown)$/i;
 
 // Directories a static-site generator publishes at the site root.
 const PUBLISH_ROOTS = ['static', 'public'];
+
+// Frontmatter keys that conventionally hold an image path. Deliberately
+// "picture" rather than "pic", so an ordinary key like "topic" is not caught.
+const IMAGE_KEY = /(hero|cover|image|img|thumb|banner|photo|picture|logo|avatar)/i;
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i;
+
+// True when a frontmatter row should offer an image picker: either the key
+// reads like an image field, or the value already points at an image. The
+// value check is what rescues unconventional key names once they hold a path.
+export function wantsImagePicker(key, value) {
+  return IMAGE_KEY.test(key ?? '') || IMAGE_EXT.test(String(value ?? '').trim());
+}
 
 export function slugify(text) {
   const slug = text
@@ -15,6 +32,15 @@ export function slugify(text) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return slug || 'untitled';
+}
+
+// A post saved without a markdown extension is invisible to both the sidebar
+// tree and most static-site generators, so give it one. The typed name is
+// never discarded — a non-markdown extension is appended to, not replaced.
+export function ensureMarkdownExtension(path) {
+  const name = path.slice(path.lastIndexOf('/') + 1);
+  if (!name || MARKDOWN_EXT.test(name)) return path;
+  return `${path}.md`;
 }
 
 export function newPostPath(contentDir, title) {

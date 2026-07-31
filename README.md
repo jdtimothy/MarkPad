@@ -38,6 +38,26 @@ branch with a message you supply. Images inserted from the toolbar are staged
 and land in the *same* commit as the post. Renaming a file is likewise one
 commit containing both the addition and the deletion.
 
+### Images
+
+Choosing an image uploads nothing straight away: it is staged in memory,
+linked into the document, and committed alongside the post the next time you
+save. Frontmatter rows get an image picker too — the 🖼 button appears on any
+row whose key reads like an image field (`hero`, `cover`, `image`, `thumbnail`,
+`banner`, `photo`, `picture`, `logo`, `avatar`, and decorated forms like
+`featured_image` or `heroImage`) or whose value already points at an image
+file. Both the body and frontmatter pickers use the repository's image folder,
+avoid overwriting an existing file by suffixing the name, and write the link in
+whichever style the repository is configured for.
+
+New posts and renames get a `.md` extension when you leave one off, since a
+file without it is invisible to both the sidebar and most generators.
+
+Frontmatter images are not shown in the preview, which renders only the
+document body. A frontmatter value holding a list of images is left alone —
+the frontmatter panel handles flat `key: value` pairs and preserves anything
+else verbatim.
+
 ### Setting up the OAuth App
 
 The integration authenticates with GitHub's OAuth **device flow**, which needs

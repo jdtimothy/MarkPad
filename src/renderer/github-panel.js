@@ -1,5 +1,5 @@
 import { buildTree } from './github-tree.js';
-import { guessDirs, uniquePath } from './github-paths.js';
+import { guessDirs, uniquePath, ensureMarkdownExtension } from './github-paths.js';
 import { loadConfig, saveConfig } from './repo-config.js';
 
 export function createGitHubPanel(container, {
@@ -140,7 +140,7 @@ export function createGitHubPanel(container, {
     await onNewFile({
       repo: selectedRepo,
       branch: selectedBranch,
-      path: uniquePath(path, allPaths),
+      path: uniquePath(ensureMarkdownExtension(path), allPaths),
     });
   }
 
@@ -230,7 +230,7 @@ export function createGitHubPanel(container, {
   }
 
   async function renameFile(path) {
-    const target = await askPath('Rename to', path, 'Rename');
+    const target = ensureMarkdownExtension(await askPath('Rename to', path, 'Rename') || '');
     if (!target || target === path) return;
     const newPath = uniquePath(target, allPaths);
 

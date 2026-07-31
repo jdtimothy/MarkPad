@@ -19,6 +19,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Branch creation and pull request creation from the sidebar.
 - Per-repository settings for the content folder, image folder, and image
   link style, stored locally rather than in the repository.
+- Image picker on frontmatter rows, so a hero/cover image is staged, named
+  and linked exactly like a body image and lands in the same commit.
+
+### Fixed
+- The toolbar's image button opened the URL prompt instead of the native file
+  picker for local (non-repository) documents.
+- Images were embedded into the document as base64 data URLs instead of links.
+  The rendered pane swaps in resolved image bytes for display, and because
+  that pane is the editable source of truth, the data URL was serialized back
+  into the markdown on save.
+- New posts and renames without a markdown extension produced a file that
+  neither the sidebar tree nor most static-site generators would recognize;
+  `.md` is now appended when missing.
+- Image folder detection preferred `public` over `src/assets` on Astro-shaped
+  repositories, where content images belong in `src/assets`.
+- Images over 1 MB did not display in the rendered view once committed. The
+  Contents API answers 200 with empty content above that size, producing a
+  truncated data URL; committed images are now read through the Blobs API,
+  which carries up to 100 MB.
+- The rendered view re-downloaded every image on each re-render. Resolved
+  images are cached for the open document, and images just committed are kept
+  in memory rather than fetched back from GitHub.
 
 ## [1.0.0] - 2026-07-08
 

@@ -6,6 +6,8 @@ import {
   guessDirs,
   imageLink,
   repoPathForLink,
+  wantsImagePicker,
+  ensureMarkdownExtension,
 } from '../src/renderer/github-paths.js';
 
 describe('slugify', () => {
@@ -60,6 +62,15 @@ describe('guessDirs', () => {
   it('picks an image directory from known candidates', () => {
     expect(guessDirs(['static/img/logo.png', 'content/a.md']).imageDir).toBe('static');
   });
+  it('prefers src/assets over public on an Astro-shaped repo', () => {
+    // Astro serves public/ verbatim; content images belong in src/assets so
+    // the asset pipeline processes them.
+    expect(guessDirs([
+      'src/assets/blog/.gitkeep',
+      'public/favicon.svg',
+      'src/content/blog/a.md',
+    ]).imageDir).toBe('src/assets');
+  });
   it('falls back to repo root and an images folder when nothing matches', () => {
     expect(guessDirs(['a.md'])).toEqual({ contentDir: '', imageDir: 'images' });
   });
@@ -105,5 +116,86 @@ describe('repoPathForLink', () => {
   });
   it('falls back to the bare path when nothing matches', () => {
     expect(repoPathForLink('content/a.md', '/img/x.png', [])).toBe('img/x.png');
+  });
+});
+
+describe('ensureMarkdownExtension', () => {
+  it('leaves a markdown path alone', () => {
+    expect(ensureMarkdownExtension('content/posts/hello.md')).toBe('content/posts/hello.md');
+    expect(ensureMarkdownExtension('notes.markdown')).toBe('notes.markdown');
+  });
+
+  it('accepts any capitalisation of the extension', () => {
+    expect(ensureMarkdownExtension('A.MD')).toBe('A.MD');
+    expect(ensureMarkdownExtension('b.MarkDown')).toBe('b.MarkDown');
+  });
+
+  it('appends .md when the extension is missing', () => {
+    expect(ensureMarkdownExtension('Test2')).toBe('Test2.md');
+    expect(ensureMarkdownExtension('src/content/blog/Test2')).toBe('src/content/blog/Test2.md');
+  });
+
+  it('appends rather than replacing a non-markdown extension', () => {
+    // Never discard what the author typed — "post.txt" stays visible.
+    expect(ensureMarkdownExtension('post.txt')).toBe('post.txt.md');
+  });
+
+  it('is not fooled by a dot in a directory name', () => {
+    expect(ensureMarkdownExtension('v1.2/notes')).toBe('v1.2/notes.md');
+  });
+
+  it('leaves a path with no filename untouched', () => {
+    expect(ensureMarkdownExtension('content/')).toBe('content/');
+    expect(ensureMarkdownExtension('')).toBe('');
+  });
+});
+
+describe('wantsImagePicker', () => {
+  it('matches the common image key names', () => {
+    for (const key of [
+      'hero', 'cover', 'image', 'thumbnail', 'banner',
+      'photo', 'picture', 'logo', 'avatar',
+    ]) {
+      expect(wantsImagePicker(key, '')).toBe(true);
+    }
+  });
+
+  it('matches decorated and camelCased variants', () => {
+    for (const key of ['heroImage', 'featured_image', 'og_image', 'cover-img', 'postThumbnail']) {
+      expect(wantsImagePicker(key, '')).toBe(true);
+    }
+  });
+
+  it('ignores ordinary frontmatter keys', () => {
+    for (const key of ['title', 'date', 'draft', 'tags', 'description', 'summary', 'author', 'slug']) {
+      expect(wantsImagePicker(key, '')).toBe(false);
+    }
+  });
+
+  it('does not treat "topic" as an image key', () => {
+    // Guards the key pattern against matching a bare "pic" substring.
+    expect(wantsImagePicker('topic', '')).toBe(false);
+  });
+
+  it('matches any key whose value already looks like an image path', () => {
+    expect(wantsImagePicker('postPic', 'static/img/x.png')).toBe(true);
+    expect(wantsImagePicker('splash', '/img/a.jpg')).toBe(true);
+    expect(wantsImagePicker('whatever', 'x.webp')).toBe(true);
+  });
+
+  it('matches image extensions case-insensitively and ignores surrounding space', () => {
+    expect(wantsImagePicker('splash', '  cover.SVG  ')).toBe(true);
+  });
+
+  it('ignores values that are not image paths', () => {
+    expect(wantsImagePicker('title', 'My First Post')).toBe(false);
+    expect(wantsImagePicker('draft', 'true')).toBe(false);
+    expect(wantsImagePicker('date', '2026-07-31')).toBe(false);
+  });
+
+  it('tolerates missing key or value', () => {
+    expect(wantsImagePicker(undefined, undefined)).toBe(false);
+    expect(wantsImagePicker('', '')).toBe(false);
+    expect(wantsImagePicker('hero', undefined)).toBe(true);
   });
 });

@@ -112,6 +112,36 @@ async function fileSha(client, repo, branch, path) {
   }
 }
 
+// Reads a binary file as base64.
+//
+// Deliberately not the Contents API: above 1 MB that endpoint still answers
+// 200 but with `encoding: "none"` and an empty body, which silently yields a
+// truncated data URL rather than an error. The Blobs API carries content up
+// to 100 MB, so the sha is resolved from the directory listing (never size
+// limited) and the bytes fetched from there.
+async function readAsset(client, repo, branch, path) {
+  const slash = path.lastIndexOf('/');
+  const dir = slash === -1 ? '' : path.slice(0, slash);
+  const name = path.slice(slash + 1);
+
+  const listing = await client.request('GET', `/repos/${repo}/contents/${encodePath(dir)}`, {
+    query: { ref: branch },
+  });
+  const entry = Array.isArray(listing)
+    ? listing.find((e) => e.name === name && e.type === 'file')
+    : null;
+  if (!entry) {
+    throw new GitHubError({
+      status: 404,
+      code: 'not_found',
+      message: `${path} is not in ${repo}@${branch}`,
+    });
+  }
+
+  const blob = await client.request('GET', `/repos/${repo}/git/blobs/${entry.sha}`);
+  return { base64: (blob.content || '').replace(/\s/g, ''), size: entry.size };
+}
+
 async function findPullRequest(client, repo, branch, owner) {
   const prs = await client.request('GET', `/repos/${repo}/pulls`, {
     query: { head: `${owner}:${branch}`, state: 'open' },
@@ -142,6 +172,7 @@ module.exports = {
   getHead,
   commit,
   fileSha,
+  readAsset,
   findPullRequest,
   createPullRequest,
   createBranch,

@@ -694,6 +694,13 @@ select {
   font-size: 12px;
 }
 
+.fm-row .fm-image {
+  flex: 0 0 auto;
+  padding: 4px 6px;
+  font-size: 13px;
+  line-height: 1;
+}
+
 .fm-rows {
   display: flex;
   flex-direction: column;
