@@ -4,6 +4,18 @@ const IMAGE_CANDIDATES = ['static', 'public', 'assets', 'src/assets', 'images'];
 // Directories a static-site generator publishes at the site root.
 const PUBLISH_ROOTS = ['static', 'public'];
 
+// Frontmatter keys that conventionally hold an image path. Deliberately
+// "picture" rather than "pic", so an ordinary key like "topic" is not caught.
+const IMAGE_KEY = /(hero|cover|image|img|thumb|banner|photo|picture|logo|avatar)/i;
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i;
+
+// True when a frontmatter row should offer an image picker: either the key
+// reads like an image field, or the value already points at an image. The
+// value check is what rescues unconventional key names once they hold a path.
+export function wantsImagePicker(key, value) {
+  return IMAGE_KEY.test(key ?? '') || IMAGE_EXT.test(String(value ?? '').trim());
+}
+
 export function slugify(text) {
   const slug = text
     .toLowerCase()

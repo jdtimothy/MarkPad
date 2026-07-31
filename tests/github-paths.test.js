@@ -6,6 +6,7 @@ import {
   guessDirs,
   imageLink,
   repoPathForLink,
+  wantsImagePicker,
 } from '../src/renderer/github-paths.js';
 
 describe('slugify', () => {
@@ -105,5 +106,55 @@ describe('repoPathForLink', () => {
   });
   it('falls back to the bare path when nothing matches', () => {
     expect(repoPathForLink('content/a.md', '/img/x.png', [])).toBe('img/x.png');
+  });
+});
+
+describe('wantsImagePicker', () => {
+  it('matches the common image key names', () => {
+    for (const key of [
+      'hero', 'cover', 'image', 'thumbnail', 'banner',
+      'photo', 'picture', 'logo', 'avatar',
+    ]) {
+      expect(wantsImagePicker(key, '')).toBe(true);
+    }
+  });
+
+  it('matches decorated and camelCased variants', () => {
+    for (const key of ['heroImage', 'featured_image', 'og_image', 'cover-img', 'postThumbnail']) {
+      expect(wantsImagePicker(key, '')).toBe(true);
+    }
+  });
+
+  it('ignores ordinary frontmatter keys', () => {
+    for (const key of ['title', 'date', 'draft', 'tags', 'description', 'summary', 'author', 'slug']) {
+      expect(wantsImagePicker(key, '')).toBe(false);
+    }
+  });
+
+  it('does not treat "topic" as an image key', () => {
+    // Guards the key pattern against matching a bare "pic" substring.
+    expect(wantsImagePicker('topic', '')).toBe(false);
+  });
+
+  it('matches any key whose value already looks like an image path', () => {
+    expect(wantsImagePicker('postPic', 'static/img/x.png')).toBe(true);
+    expect(wantsImagePicker('splash', '/img/a.jpg')).toBe(true);
+    expect(wantsImagePicker('whatever', 'x.webp')).toBe(true);
+  });
+
+  it('matches image extensions case-insensitively and ignores surrounding space', () => {
+    expect(wantsImagePicker('splash', '  cover.SVG  ')).toBe(true);
+  });
+
+  it('ignores values that are not image paths', () => {
+    expect(wantsImagePicker('title', 'My First Post')).toBe(false);
+    expect(wantsImagePicker('draft', 'true')).toBe(false);
+    expect(wantsImagePicker('date', '2026-07-31')).toBe(false);
+  });
+
+  it('tolerates missing key or value', () => {
+    expect(wantsImagePicker(undefined, undefined)).toBe(false);
+    expect(wantsImagePicker('', '')).toBe(false);
+    expect(wantsImagePicker('hero', undefined)).toBe(true);
   });
 });

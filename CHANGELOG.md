@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Branch creation and pull request creation from the sidebar.
 - Per-repository settings for the content folder, image folder, and image
   link style, stored locally rather than in the repository.
+- Image picker on frontmatter rows, so a hero/cover image is staged, named
+  and linked exactly like a body image and lands in the same commit.
+
+### Fixed
+- The toolbar's image button opened the URL prompt instead of the native file
+  picker for local (non-repository) documents.
 
 ## [1.0.0] - 2026-07-08
 

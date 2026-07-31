@@ -29,8 +29,10 @@ const view = createEditor(document.getElementById('editor-pane'), () => {
   refreshTitle();
 });
 ui = initUI(view, () => refreshTitle());
-fmPanel = createFrontmatterPanel(document.getElementById('fm-panel'), () =>
-  refreshTitle()
+fmPanel = createFrontmatterPanel(
+  document.getElementById('fm-panel'),
+  () => refreshTitle(),
+  { onPickImage: () => pickImage() }
 );
 async function openRepoFile({ repo, branch, path, sha, headSha, content }) {
   if (!(await guardDirty())) return;
@@ -247,7 +249,10 @@ async function saveAs() {
   return true;
 }
 
-setImageHandler(async () => {
+// Picks an image and, for repo documents, stages it for the next commit.
+// Shared by the toolbar's image action and the frontmatter row pickers, so
+// both produce the same link style and land in the same commit.
+async function pickImage() {
   // Local documents keep the original behaviour: pick a file, link it by
   // file:// URL, upload nothing.
   if (source?.kind !== 'repo') return window.markpad.openImage();
@@ -261,7 +266,9 @@ setImageHandler(async () => {
   const path = uniquePath(imageDir ? `${imageDir}/${picked.name}` : picked.name, taken);
   pendingImages.push({ path, base64: picked.base64, dataUrl: picked.dataUrl });
   return { url: imageLink(source.path, path, imageLinkStyle), name: picked.name };
-});
+}
+
+setImageHandler(pickImage);
 
 setAssetResolver(async (src) => {
   if (source?.kind !== 'repo') return null;
