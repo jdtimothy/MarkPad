@@ -156,3 +156,23 @@ describe('commit', () => {
     expect(client.calls[0].path).toBe('/repos/o/r/git/ref/heads/feat%2Fx');
   });
 });
+
+describe('commit conflict signalling', () => {
+  it('surfaces a non-fast-forward ref rejection as a conflict', async () => {
+    const client = fakeClient();
+    const original = client.request;
+    client.request = async (method, path, opts) => {
+      if (method === 'PATCH') {
+        const err = new Error('Update is not a fast forward');
+        err.code = 'unprocessable';
+        err.status = 422;
+        throw err;
+      }
+      return original(method, path, opts);
+    };
+    await expect(commit(client, {
+      repo: 'o/r', branch: 'main', message: 'm',
+      files: [{ path: 'a.md', content: 'A' }],
+    })).rejects.toMatchObject({ code: 'conflict' });
+  });
+});

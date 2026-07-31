@@ -24,5 +24,6 @@ contextBridge.exposeInMainWorld('markpad', {
     readFile: (repo, branch, path) => ipcRenderer.invoke('github:readFile', repo, branch, path),
     commit: (args) => ipcRenderer.invoke('github:commit', args),
     getHead: (repo, branch) => ipcRenderer.invoke('github:getHead', repo, branch),
+    fileSha: (repo, branch, path) => ipcRenderer.invoke('github:fileSha', repo, branch, path),
   },
 });

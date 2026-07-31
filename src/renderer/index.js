@@ -6,7 +6,7 @@ import { createFrontmatterPanel } from './fmpanel.js';
 import { splitFrontmatter, joinDoc } from './frontmatter.js';
 import { createGitHubPanel } from './github-panel.js';
 import { createSources } from './doc-source.js';
-import { createCommitBar } from './commit-bar.js';
+import { createCommitBar, askConflict } from './commit-bar.js';
 
 const sources = createSources(window.markpad);
 const commitBar = createCommitBar();
@@ -106,23 +106,77 @@ async function openFile() {
 
 async function save() {
   if (!source) return saveAs();
-
-  let options = {};
-  if (source.kind === 'repo') {
-    const message = await commitBar.ask(`Update ${source.path}`);
-    if (message === null) return false; // cancelled
-    options = { message };
+  if (source.kind !== 'repo') {
+    const result = await source.save(fullDoc());
+    if (!result.ok) {
+      ui.showError(`Could not save file: ${result.error}`);
+      return false;
+    }
+    markSaved(result.source, currentName);
+    return true;
   }
 
-  const wasRepo = source.kind === 'repo';
-  const result = await source.save(fullDoc(), options);
+  const message = await commitBar.ask(`Update ${source.path}`);
+  if (message === null) return false;
+
+  // Stale-file guard: has this exact file moved since we opened it?
+  const current = await window.markpad.github.fileSha(source.repo, source.branch, source.path);
+  const stale = current.ok && current.data.sha && current.data.sha !== source.baseSha;
+
+  let result = stale
+    ? { ok: false, conflict: true, error: 'File changed on GitHub' }
+    : await source.save(fullDoc(), { message });
+
+  if (!result.ok && result.conflict) {
+    const choice = await askConflict(
+      `${source.path} changed on GitHub since you opened it.`
+    );
+    if (choice === 'cancel') return false;
+    if (choice === 'browse') {
+      window.markpad.github.openExternal(
+        `https://github.com/${source.repo}/blob/${source.branch}/${source.path}`
+      );
+      return false;
+    }
+    if (choice === 'reload') {
+      await reloadFromGitHub();
+      return false;
+    }
+    result = await source.save(fullDoc(), { message, force: true });
+  }
+
   if (!result.ok) {
-    ui.showError(`Could not save: ${result.error}`);
+    ui.showError(`Could not commit: ${result.error}`);
     return false;
   }
   markSaved(result.source, currentName);
-  if (wasRepo) ghPanel.reloadTree();
+  ghPanel.reloadTree();
   return true;
+}
+
+async function reloadFromGitHub() {
+  const [file, head] = await Promise.all([
+    window.markpad.github.readFile(source.repo, source.branch, source.path),
+    window.markpad.github.getHead(source.repo, source.branch),
+  ]);
+  if (!file.ok || !head.ok) {
+    ui.showError(`Could not reload: ${file.error || head.error}`);
+    return;
+  }
+  const { fm, body } = splitFrontmatter(file.data.content.replace(/\r\n/g, '\n'));
+  fmPanel.setFrontmatter(fm);
+  setDoc(view, body);
+  await ui.refreshRendered();
+  markSaved(
+    sources.repoSource({
+      repo: source.repo,
+      branch: source.branch,
+      path: source.path,
+      baseSha: file.data.sha,
+      headSha: head.data.headSha,
+    }),
+    currentName
+  );
 }
 
 async function saveAs() {

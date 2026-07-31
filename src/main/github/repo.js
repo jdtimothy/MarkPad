@@ -79,11 +79,37 @@ async function commit(client, { repo, branch, message, files, expectedHeadSha })
   const newCommit = await client.request('POST', `/repos/${repo}/git/commits`, {
     body: { message, tree: newTree.sha, parents: [headSha] },
   });
-  await client.request('PATCH', `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
-    body: { sha: newCommit.sha, force: false },
-  });
+  try {
+    await client.request('PATCH', `/repos/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
+      body: { sha: newCommit.sha, force: false },
+    });
+  } catch (err) {
+    // GitHub reports a rejected non-fast-forward update as 422.
+    if (err.status === 422 && /fast forward/i.test(err.message)) {
+      throw new GitHubError({
+        status: 409,
+        code: 'conflict',
+        message: 'Someone else pushed to this branch while you were editing.',
+      });
+    }
+    throw err;
+  }
 
   return { commitSha: newCommit.sha, headSha: newCommit.sha, blobShas };
 }
 
-module.exports = { listRepos, listBranches, listTree, readFile, encodePath, getHead, commit };
+// Returns { sha: null } when the file does not exist yet, so a brand-new post
+// is never mistaken for a stale one.
+async function fileSha(client, repo, branch, path) {
+  try {
+    const data = await client.request('GET', `/repos/${repo}/contents/${encodePath(path)}`, {
+      query: { ref: branch },
+    });
+    return { sha: data.sha };
+  } catch (err) {
+    if (err.code === 'not_found') return { sha: null };
+    throw err;
+  }
+}
+
+module.exports = { listRepos, listBranches, listTree, readFile, encodePath, getHead, commit, fileSha };

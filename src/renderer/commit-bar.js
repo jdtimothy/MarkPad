@@ -33,3 +33,28 @@ export function createCommitBar() {
 
   return { ask };
 }
+
+// Resolves to 'overwrite' | 'reload' | 'browse' | 'cancel'.
+export function askConflict(detail) {
+  const dialog = document.getElementById('conflict-dialog');
+  document.getElementById('conflict-detail').textContent = detail;
+  return new Promise((resolve) => {
+    const choose = (value) => () => { dialog.close(); resolve(value); };
+    const buttons = [
+      ['conflict-overwrite', 'overwrite'],
+      ['conflict-reload', 'reload'],
+      ['conflict-browse', 'browse'],
+      ['conflict-cancel', 'cancel'],
+    ].map(([id, value]) => {
+      const el = document.getElementById(id);
+      const handler = choose(value);
+      el.addEventListener('click', handler, { once: true });
+      return [el, handler];
+    });
+    dialog.addEventListener('close', () => {
+      for (const [el, handler] of buttons) el.removeEventListener('click', handler);
+      resolve('cancel');
+    }, { once: true });
+    dialog.showModal();
+  });
+}

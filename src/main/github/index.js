@@ -90,6 +90,7 @@ function registerGitHubHandlers() {
   ipcMain.handle('github:readFile', wrap((repo, branch, path) => repoApi.readFile(client, repo, branch, path)));
   ipcMain.handle('github:commit', wrap((args) => repoApi.commit(client, args)));
   ipcMain.handle('github:getHead', wrap((repo, branch) => repoApi.getHead(client, repo, branch)));
+  ipcMain.handle('github:fileSha', wrap((repo, branch, path) => repoApi.fileSha(client, repo, branch, path)));
 }
 
 module.exports = { registerGitHubHandlers, getClient: () => client, hasToken: () => Boolean(token) };
