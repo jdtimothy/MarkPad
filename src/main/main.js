@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron')
 const path = require('path');
 const fs = require('fs/promises');
 const { pathToFileURL } = require('url');
+const { registerGitHubHandlers } = require('./github/index.js');
 
 const FILE_FILTERS = [
   { name: 'Markdown', extensions: ['md', 'markdown'] },
@@ -98,6 +99,31 @@ ipcMain.handle('dialog:openImage', async (event) => {
   };
 });
 
+// Like dialog:openImage, but returns the bytes so the renderer can stage the
+// image for the next commit and preview it before it exists on GitHub.
+ipcMain.handle('dialog:openImageData', async (event) => {
+  const parent = BrowserWindow.fromWebContents(event.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(parent, {
+    filters: IMAGE_FILTERS,
+    properties: ['openFile'],
+  });
+  if (canceled || filePaths.length === 0) return null;
+  const filePath = filePaths[0];
+  try {
+    const bytes = await fs.readFile(filePath);
+    const ext = path.extname(filePath).slice(1).toLowerCase();
+    const mime = ext === 'svg' ? 'svg+xml' : ext === 'jpg' ? 'jpeg' : ext;
+    const base64 = bytes.toString('base64');
+    return {
+      name: path.basename(filePath),
+      base64,
+      dataUrl: `data:image/${mime};base64,${base64}`,
+    };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 ipcMain.handle('file:save', async (_event, filePath, content) => {
   try {
     await fs.writeFile(filePath, content, 'utf-8');
@@ -150,5 +176,8 @@ ipcMain.on('window:close', (event) => {
   BrowserWindow.fromWebContents(event.sender)?.close();
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  registerGitHubHandlers();
+  createWindow();
+});
 app.on('window-all-closed', () => app.quit());

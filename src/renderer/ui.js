@@ -4,9 +4,17 @@ import { renderPreview } from './preview.js';
 import { htmlToMarkdown } from './rendered-editor.js';
 
 let fileActions = { newFile() {}, openFile() {}, save() {}, saveAs() {} };
+let imageHandler = null;
 
 export function registerFileActions(handlers) {
   fileActions = handlers;
+}
+
+// When set, the toolbar's image action calls this instead of picking a
+// local file:// URL — repo documents stage the image for the next commit.
+// It returns the same { url, name } shape the local picker does.
+export function setImageHandler(fn) {
+  imageHandler = fn;
 }
 
 export function initUI(view, onRenderedChange = () => {}) {
@@ -353,7 +361,8 @@ export function initUI(view, onRenderedChange = () => {}) {
   async function insertImage() {
     const renderedSelection = mode === 'preview' ? saveRenderedSelection() : null;
     let image = null;
-    if (window.markpad?.openImage) image = await window.markpad.openImage();
+    if (imageHandler) image = await imageHandler();
+    else if (window.markpad?.openImage) image = await window.markpad.openImage();
 
     const url = image?.url || await askUrl('Image URL');
     if (!url) {
@@ -446,7 +455,9 @@ export function initUI(view, onRenderedChange = () => {}) {
     if (!e.ctrlKey || e.altKey) return;
     const key = e.key.toLowerCase();
     const shortcuts = {
-      b: actions.bold,
+      b: e.shiftKey
+        ? () => document.getElementById('gh-sidebar')?.classList.toggle('hidden')
+        : actions.bold,
       i: actions.italic,
       k: actions.link,
       e: () => setMode(mode === 'edit' ? 'preview' : 'edit'),

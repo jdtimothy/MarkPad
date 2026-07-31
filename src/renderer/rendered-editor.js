@@ -6,13 +6,25 @@ function cleanText(text) {
   return text.replace(/\u00a0/g, ' ');
 }
 
+// A link destination containing a space or a bracket has to be wrapped in
+// angle brackets, or the whole `![alt](dest)` stops being a link at all and
+// renders as literal text.
+function markdownUrl(url) {
+  return /[\s()<>]/.test(url) ? `<${url.replace(/([<>])/g, '\\$1')}>` : url;
+}
+
 function inlineMarkdown(node) {
   if (node.nodeType === Node.TEXT_NODE) return escapeMarkdown(cleanText(node.textContent));
   if (node.nodeType !== Node.ELEMENT_NODE) return '';
 
   const tag = node.tagName.toLowerCase();
   if (tag === 'br') return '\n';
-  if (tag === 'img') return `![${escapeMarkdown(node.alt || 'image')}](${node.getAttribute('src') || ''})`;
+  // data-md-src holds the original link when the preview swapped in resolved
+  // image bytes for display (see setAssetResolver in preview.js).
+  if (tag === 'img') {
+    const src = node.dataset?.mdSrc || node.getAttribute('src') || '';
+    return `![${escapeMarkdown(node.alt || 'image')}](${markdownUrl(src)})`;
+  }
 
   const inner = Array.from(node.childNodes).map(inlineMarkdown).join('');
   if (!inner && tag !== 'a') return '';
