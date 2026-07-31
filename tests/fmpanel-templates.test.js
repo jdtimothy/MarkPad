@@ -42,6 +42,12 @@ function keysIn(root) {
   return [...root.querySelectorAll('.fm-key')].map((i) => i.value);
 }
 
+// The chooser lives inside the expanded body, so a document that already has
+// frontmatter has to be opened before it can be reached.
+function expand(root) {
+  root.querySelector('.fm-header button').click();
+}
+
 beforeEach(() => {
   document.body.innerHTML = '';
 });
@@ -81,7 +87,7 @@ describe('template selector', () => {
   it('adds only missing keys to existing frontmatter', () => {
     const { root, panel } = mount(fakeStore(seeded({ 'Blog post': BLOG })));
     panel.setFrontmatter('title: My Post\n');
-    // Applying expands the panel itself; toggling here would close it again.
+    expand(root);
     choose(root, 'Blog post');
     expect(keysIn(root)).toEqual(['title', 'pubDate', 'tags']);
     expect(panel.getFrontmatter()).toContain('title: My Post');
@@ -104,6 +110,15 @@ describe('template selector', () => {
     const store = fakeStore();
     const { root } = mount(store);
     expect(templateNames(root)).toEqual(['Basic']);
+  });
+
+  it('is hidden while the panel is collapsed', () => {
+    const { root, panel } = mount(fakeStore(seeded({ 'Blog post': BLOG })));
+    panel.setFrontmatter('title: My Post\n');
+    expect(select(root)).toBeNull();
+
+    expand(root);
+    expect(select(root)).not.toBeNull();
   });
 
   it('reports the change so the document becomes dirty', () => {
@@ -162,6 +177,7 @@ describe('save as template', () => {
     const store = fakeStore(seeded({}));
     const { root, panel } = mount(store);
     panel.setFrontmatter('title: My Post\ntags: [a]\n');
+    expand(root);
 
     root.querySelector('.fm-template-save').click();
     answerDialog(dialog, 'Blog post');
@@ -180,6 +196,7 @@ describe('save as template', () => {
     const store = fakeStore(seeded({}));
     const { root, panel } = mount(store);
     panel.setFrontmatter('date: 2026-07-31\n');
+    expand(root);
 
     root.querySelector('.fm-template-save').click();
     answerDialog(dialog, 'Dated');
@@ -195,6 +212,7 @@ describe('save as template', () => {
     const store = fakeStore(seeded({}));
     const { root, panel } = mount(store);
     panel.setFrontmatter('title: x\n');
+    expand(root);
 
     root.querySelector('.fm-template-save').click();
     dialog.close('cancel');
@@ -208,6 +226,7 @@ describe('save as template', () => {
     const dialog = installDialog();
     const { root, panel } = mount(fakeStore(seeded({})));
     panel.setFrontmatter('title: x\n');
+    expand(root);
 
     root.querySelector('.fm-template-save').click();
     answerDialog(dialog, 'Fresh');

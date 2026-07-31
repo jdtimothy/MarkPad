@@ -177,9 +177,12 @@ export function createFrontmatterPanel(
 
   function render() {
     root.innerHTML = '';
-    renderTemplateBar();
 
     if (rows === null) {
+      // Nothing to collapse yet, and this is the state where starting from a
+      // template is most useful — so the chooser belongs here.
+      renderTemplateBar();
+
       const add = document.createElement('button');
       add.id = 'fm-add';
       add.textContent = '+ Add frontmatter';
@@ -214,6 +217,10 @@ export function createFrontmatterPanel(
     root.appendChild(header);
 
     if (collapsed) return;
+
+    // Part of the expanded body: no reason to occupy space while the panel
+    // is collapsed.
+    renderTemplateBar();
 
     const list = document.createElement('div');
     list.className = 'fm-rows';

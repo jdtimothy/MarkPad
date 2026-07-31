@@ -31,9 +31,10 @@ A modern Windows desktop markdown editor with an active toolbar and live preview
 
 ## Frontmatter templates
 
-The frontmatter panel has a **Template** dropdown. Choosing a template fills in
-its keys, so starting a post does not mean retyping the same field names or
-remembering a project's schema.
+The frontmatter panel has a **Template** dropdown, shown when the panel is
+expanded and on a document that has no frontmatter yet. Choosing a template
+fills in its keys, so starting a post does not mean retyping the same field
+names or remembering a project's schema.
 
 Applying a template **only ever adds keys that are missing**. Values you have
 already typed are never touched and rows never move, so the dropdown is safe to
