@@ -34,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.md` is now appended when missing.
 - Image folder detection preferred `public` over `src/assets` on Astro-shaped
   repositories, where content images belong in `src/assets`.
+- Images over 1 MB did not display in the rendered view once committed. The
+  Contents API answers 200 with empty content above that size, producing a
+  truncated data URL; committed images are now read through the Blobs API,
+  which carries up to 100 MB.
+- The rendered view re-downloaded every image on each re-render. Resolved
+  images are cached for the open document, and images just committed are kept
+  in memory rather than fetched back from GitHub.
 
 ## [1.0.0] - 2026-07-08
 

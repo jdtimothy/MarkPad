@@ -19,6 +19,18 @@ let source = null; // null = a new unsaved buffer
 let currentName = 'untitled.md';
 // Images chosen for a repo document wait here until the next commit.
 let pendingImages = []; // [{ path, base64, dataUrl }]
+// Image bytes already resolved for the preview, keyed by repo/branch/path.
+// Committing moves an image from pendingImages to here rather than dropping
+// it, so a just-saved post keeps rendering without re-fetching what we just
+// uploaded. It also keeps re-renders from re-downloading every image.
+let assetCache = new Map();
+
+const assetKey = (repo, branch, path) => `${repo}@${branch}:${path}`;
+
+function forgetImages() {
+  pendingImages = [];
+  assetCache = new Map();
+}
 let savedDoc = '';
 const titlebarFile = document.getElementById('titlebar-file');
 const maximizeButton = document.getElementById('window-maximize');
@@ -36,7 +48,7 @@ fmPanel = createFrontmatterPanel(
 );
 async function openRepoFile({ repo, branch, path, sha, headSha, content }) {
   if (!(await guardDirty())) return;
-  pendingImages = [];
+  forgetImages();
   const normalized = content.replace(/\r\n/g, '\n');
   const { fm, body } = splitFrontmatter(normalized);
   fmPanel.setFrontmatter(fm);
@@ -50,7 +62,7 @@ async function openRepoFile({ repo, branch, path, sha, headSha, content }) {
 
 async function newRepoFile({ repo, branch, path }) {
   if (!(await guardDirty())) return;
-  pendingImages = [];
+  forgetImages();
   const head = await window.markpad.github.getHead(repo, branch);
   if (!head.ok) {
     ui.showError(`Could not start a new post: ${head.error}`);
@@ -136,7 +148,7 @@ async function guardDirty() {
 
 async function newFile() {
   if (!(await guardDirty())) return;
-  pendingImages = [];
+  forgetImages();
   fmPanel.setFrontmatter(null);
   setDoc(view, '');
   await ui.refreshRendered();
@@ -145,7 +157,7 @@ async function newFile() {
 
 async function openFile() {
   if (!(await guardDirty())) return;
-  pendingImages = [];
+  forgetImages();
   const result = await window.markpad.openFile();
   if (!result) return;
   if (result.error) {
@@ -208,6 +220,11 @@ async function save() {
     return false;
   }
   markSaved(result.source, currentName);
+  // The images are on GitHub now, but keep their bytes so the preview does
+  // not have to download back what it just uploaded.
+  for (const image of pendingImages) {
+    assetCache.set(assetKey(source.repo, source.branch, image.path), image.dataUrl);
+  }
   pendingImages = [];
   ghPanel.reloadTree();
   return true;
@@ -274,10 +291,17 @@ setAssetResolver(async (src) => {
   if (source?.kind !== 'repo') return null;
   const known = [...ghPanel.getPaths(), ...pendingImages.map((i) => i.path)];
   const resolved = repoPathForLink(source.path, src, known);
+
   const staged = pendingImages.find((i) => i.path === resolved);
   if (staged) return staged.dataUrl;
+
+  const key = assetKey(source.repo, source.branch, resolved);
+  if (assetCache.has(key)) return assetCache.get(key);
+
   const asset = await window.markpad.github.readAsset(source.repo, source.branch, resolved);
-  return asset.ok ? asset.data.dataUrl : null;
+  if (!asset.ok) return null;
+  assetCache.set(key, asset.data.dataUrl);
+  return asset.data.dataUrl;
 });
 
 registerFileActions({ newFile, openFile, save, saveAs });
