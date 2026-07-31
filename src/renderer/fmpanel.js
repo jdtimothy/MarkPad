@@ -4,13 +4,69 @@ import {
   defaultFrontmatter,
 } from './frontmatter.js';
 import { wantsImagePicker } from './github-paths.js';
+import {
+  applyTemplate,
+  expandDefaults,
+  ensureSeeded,
+  listTemplates,
+} from './templates.js';
+
+const isoToday = () => new Date().toISOString().slice(0, 10);
 
 // onPickImage is optional: when supplied it resolves to { url } for an image
 // the caller has staged, or null if the user cancelled. Rows whose key or
 // value looks image-shaped grow a picker button that fills in the value.
-export function createFrontmatterPanel(root, onChange, { onPickImage = null } = {}) {
+// store and today exist so tests can inject them; production passes neither.
+export function createFrontmatterPanel(
+  root,
+  onChange,
+  { onPickImage = null, store = globalThis.localStorage, today = isoToday } = {}
+) {
   let rows = null; // null = document has no frontmatter
   let collapsed = true;
+
+  // Seeded once per store, so the list is never empty on a first run.
+  ensureSeeded(store, defaultFrontmatter('{today}'));
+
+  // Applying is additive: it fills in keys the document lacks and never
+  // touches a value already there, so this is safe to press at any time.
+  function chooseTemplate(name) {
+    const template = listTemplates(store).find((t) => t.name === name);
+    if (!template) return;
+    rows = applyTemplate(rows, expandDefaults(template.rows, today()));
+    collapsed = false;
+    render();
+    onChange();
+  }
+
+  function renderTemplateBar() {
+    const bar = document.createElement('div');
+    bar.className = 'fm-template-bar';
+
+    const label = document.createElement('span');
+    label.className = 'fm-template-label';
+    label.textContent = 'Template';
+
+    const select = document.createElement('select');
+    select.className = 'fm-template-select';
+    const placeholder = new Option('Choose…', '');
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.append(placeholder);
+    for (const template of listTemplates(store)) {
+      select.append(new Option(template.name, template.name));
+    }
+    select.addEventListener('change', () => {
+      const chosen = select.value;
+      // The control is an action, not a record of what the document is:
+      // MarkPad cannot know a document still "is" a blog post once edited.
+      select.selectedIndex = 0;
+      if (chosen) chooseTemplate(chosen);
+    });
+
+    bar.append(label, select);
+    root.appendChild(bar);
+  }
 
   function pairCount() {
     return rows.filter((r) => r.raw === undefined).length;
@@ -18,6 +74,7 @@ export function createFrontmatterPanel(root, onChange, { onPickImage = null } = 
 
   function render() {
     root.innerHTML = '';
+    renderTemplateBar();
 
     if (rows === null) {
       const add = document.createElement('button');
