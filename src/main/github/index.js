@@ -4,11 +4,10 @@ const { requestDeviceCode, pollForToken } = require('./auth.js');
 const vault = require('./vault.js');
 const repoApi = require('./repo.js');
 
-// The OAuth App client ID is a public value and safe to commit. Device flow
-// uses no client secret. Replace this placeholder with the real ID after
-// registering the app (see README); until then, connect() fails with GitHub's
-// own error, which the sidebar surfaces in the error banner.
-const CLIENT_ID = 'REPLACE_WITH_OAUTH_APP_CLIENT_ID';
+// The OAuth App client ID is a public value and safe to commit — device flow
+// uses no client secret. The app must have "Enable Device Flow" checked, or
+// connect() fails at runtime with device_flow_disabled (see README).
+const CLIENT_ID = 'Ov23limmUMAKYjRyqcij';
 
 let token = null;
 let account = null;
