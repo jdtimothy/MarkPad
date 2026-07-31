@@ -61,10 +61,35 @@ async function newRepoFile({ repo, branch, path }) {
   refreshTitle();
 }
 
+async function onRepoFileRenamed({ repo, branch, oldPath, newPath }) {
+  if (source?.kind !== 'repo' || source.path !== oldPath) return;
+  const head = await window.markpad.github.getHead(repo, branch);
+  const file = await window.markpad.github.fileSha(repo, branch, newPath);
+  currentName = newPath.split('/').pop();
+  source = sources.repoSource({
+    repo,
+    branch,
+    path: newPath,
+    baseSha: file.ok ? file.data.sha : null,
+    headSha: head.ok ? head.data.headSha : source.headSha,
+  });
+  refreshTitle();
+}
+
+async function onRepoFileDeleted({ repo, branch, path }) {
+  if (source?.kind !== 'repo' || source.path !== path) return;
+  // The buffer stays open but is no longer backed by anything on GitHub.
+  source = null;
+  currentName = `${path.split('/').pop()} (deleted)`;
+  refreshTitle();
+}
+
 const ghPanel = createGitHubPanel(document.getElementById('gh-sidebar'), {
   onError: (msg) => ui.showError(msg),
   onOpenFile: openRepoFile,
   onNewFile: newRepoFile,
+  onRenamed: onRepoFileRenamed,
+  onDeleted: onRepoFileDeleted,
 });
 ghPanel.refreshAccount();
 

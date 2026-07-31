@@ -5,6 +5,8 @@ export function createGitHubPanel(container, {
   onError = () => {},
   onOpenFile = async () => {},
   onNewFile = async () => {},
+  onRenamed = async () => {},
+  onDeleted = async () => {},
 } = {}) {
   const dialog = document.getElementById('device-dialog');
   const codeEl = document.getElementById('device-code');
@@ -159,6 +161,70 @@ export function createGitHubPanel(container, {
     render();
   }
 
+  function showContextMenu(x, y, path) {
+    document.querySelector('.gh-menu')?.remove();
+    const menu = document.createElement('div');
+    menu.className = 'gh-menu';
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+
+    for (const [label, handler] of [
+      ['Rename…', () => renameFile(path)],
+      ['Delete…', () => deleteFile(path)],
+    ]) {
+      const item = document.createElement('button');
+      item.textContent = label;
+      item.addEventListener('click', () => { menu.remove(); handler(); });
+      menu.append(item);
+    }
+
+    document.body.append(menu);
+    setTimeout(() => {
+      document.addEventListener('click', () => menu.remove(), { once: true });
+    }, 0);
+  }
+
+  async function renameFile(path) {
+    const target = await askPath('Rename to', path, 'Rename');
+    if (!target || target === path) return;
+    const newPath = uniquePath(target, allPaths);
+
+    const file = await call(window.markpad.github.readFile(selectedRepo, selectedBranch, path));
+    if (!file) return;
+
+    // One commit: write the content at the new path, drop the old one.
+    const result = await call(window.markpad.github.commit({
+      repo: selectedRepo,
+      branch: selectedBranch,
+      message: `Rename ${path} to ${newPath}`,
+      files: [
+        { path: newPath, content: file.content },
+        { path, delete: true },
+      ],
+      expectedHeadSha: null,
+    }));
+    if (!result) return;
+
+    await onRenamed({ repo: selectedRepo, branch: selectedBranch, oldPath: path, newPath });
+    if (openPath === path) openPath = newPath;
+    await loadTree();
+  }
+
+  async function deleteFile(path) {
+    if (!window.confirm(`Delete ${path} from ${selectedRepo}?`)) return;
+    const result = await call(window.markpad.github.commit({
+      repo: selectedRepo,
+      branch: selectedBranch,
+      message: `Delete ${path}`,
+      files: [{ path, delete: true }],
+      expectedHeadSha: null,
+    }));
+    if (!result) return;
+    await onDeleted({ repo: selectedRepo, branch: selectedBranch, path });
+    if (openPath === path) openPath = null;
+    await loadTree();
+  }
+
   function renderNodes(nodes, parent, depth) {
     for (const node of nodes) {
       const row = document.createElement('div');
@@ -169,6 +235,10 @@ export function createGitHubPanel(container, {
       if (node.type === 'file') {
         if (node.path === openPath) row.classList.add('open');
         row.addEventListener('click', () => openFile(node.path));
+        row.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showContextMenu(e.clientX, e.clientY, node.path);
+        });
         parent.append(row);
       } else {
         const kids = document.createElement('div');
