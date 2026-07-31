@@ -88,6 +88,8 @@ function registerGitHubHandlers() {
   ipcMain.handle('github:listBranches', wrap((repo) => repoApi.listBranches(client, repo)));
   ipcMain.handle('github:listTree', wrap((repo, branch) => repoApi.listTree(client, repo, branch)));
   ipcMain.handle('github:readFile', wrap((repo, branch, path) => repoApi.readFile(client, repo, branch, path)));
+  ipcMain.handle('github:commit', wrap((args) => repoApi.commit(client, args)));
+  ipcMain.handle('github:getHead', wrap((repo, branch) => repoApi.getHead(client, repo, branch)));
 }
 
 module.exports = { registerGitHubHandlers, getClient: () => client, hasToken: () => Boolean(token) };

@@ -872,3 +872,45 @@ select {
   margin-bottom: 6px;
   color: #8a6100;
 }
+
+#commit-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 14px 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  font-size: 13px;
+}
+
+#commit-bar.hidden {
+  display: none;
+}
+
+#commit-message {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.9);
+  color: inherit;
+  font: inherit;
+}
+
+#commit-bar button {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.85);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+#commit-bar #commit-go {
+  border-color: transparent;
+  background: var(--accent);
+  color: white;
+}

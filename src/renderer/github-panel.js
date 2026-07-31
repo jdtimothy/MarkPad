@@ -106,14 +106,18 @@ export function createGitHubPanel(container, {
   }
 
   async function openFile(path) {
-    const data = await call(window.markpad.github.readFile(selectedRepo, selectedBranch, path));
-    if (!data) return;
+    const [data, head] = await Promise.all([
+      call(window.markpad.github.readFile(selectedRepo, selectedBranch, path)),
+      call(window.markpad.github.getHead(selectedRepo, selectedBranch)),
+    ]);
+    if (!data || !head) return;
     openPath = path;
     await onOpenFile({
       repo: selectedRepo,
       branch: selectedBranch,
       path,
       sha: data.sha,
+      headSha: head.headSha,
       content: data.content,
     });
     render();

@@ -22,5 +22,7 @@ contextBridge.exposeInMainWorld('markpad', {
     listBranches: (repo) => ipcRenderer.invoke('github:listBranches', repo),
     listTree: (repo, branch) => ipcRenderer.invoke('github:listTree', repo, branch),
     readFile: (repo, branch, path) => ipcRenderer.invoke('github:readFile', repo, branch, path),
+    commit: (args) => ipcRenderer.invoke('github:commit', args),
+    getHead: (repo, branch) => ipcRenderer.invoke('github:getHead', repo, branch),
   },
 });

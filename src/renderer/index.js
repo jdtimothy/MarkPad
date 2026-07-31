@@ -6,8 +6,10 @@ import { createFrontmatterPanel } from './fmpanel.js';
 import { splitFrontmatter, joinDoc } from './frontmatter.js';
 import { createGitHubPanel } from './github-panel.js';
 import { createSources } from './doc-source.js';
+import { createCommitBar } from './commit-bar.js';
 
 const sources = createSources(window.markpad);
+const commitBar = createCommitBar();
 
 let ui;
 let fmPanel;
@@ -104,12 +106,22 @@ async function openFile() {
 
 async function save() {
   if (!source) return saveAs();
-  const result = await source.save(fullDoc());
+
+  let options = {};
+  if (source.kind === 'repo') {
+    const message = await commitBar.ask(`Update ${source.path}`);
+    if (message === null) return false; // cancelled
+    options = { message };
+  }
+
+  const wasRepo = source.kind === 'repo';
+  const result = await source.save(fullDoc(), options);
   if (!result.ok) {
-    ui.showError(`Could not save file: ${result.error}`);
+    ui.showError(`Could not save: ${result.error}`);
     return false;
   }
   markSaved(result.source, currentName);
+  if (wasRepo) ghPanel.reloadTree();
   return true;
 }
 
