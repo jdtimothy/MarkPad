@@ -162,6 +162,50 @@ export function createGitHubPanel(container, {
     render();
   }
 
+  function defaultBranchOf(repo) {
+    return repos.find((r) => r.fullName === repo)?.defaultBranch || 'main';
+  }
+
+  async function createPr() {
+    const base = defaultBranchOf(selectedRepo);
+    const existing = await call(window.markpad.github.findPullRequest(selectedRepo, selectedBranch));
+    if (existing) {
+      window.markpad.github.openExternal(existing.url);
+      return;
+    }
+
+    const dialog = document.getElementById('pr-dialog');
+    document.getElementById('pr-title').value = selectedBranch;
+    document.getElementById('pr-body').value = '';
+    document.getElementById('pr-base').value = base;
+    dialog.returnValue = 'cancel';
+    dialog.showModal();
+    const ok = await new Promise((resolve) => {
+      dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), { once: true });
+    });
+    if (!ok) return;
+
+    const pr = await call(window.markpad.github.createPullRequest({
+      repo: selectedRepo,
+      head: selectedBranch,
+      base: document.getElementById('pr-base').value.trim(),
+      title: document.getElementById('pr-title').value.trim() || selectedBranch,
+      body: document.getElementById('pr-body').value,
+    }));
+    if (pr) window.markpad.github.openExternal(pr.url);
+  }
+
+  async function newBranch() {
+    const name = window.prompt('New branch name');
+    if (!name) return;
+    const head = await call(window.markpad.github.getHead(selectedRepo, selectedBranch));
+    if (!head) return;
+    const created = await call(window.markpad.github.createBranch(selectedRepo, name, head.headSha));
+    if (!created) return;
+    branches = (await call(window.markpad.github.listBranches(selectedRepo))) || [];
+    await selectBranch(name);
+  }
+
   function showContextMenu(x, y, path) {
     document.querySelector('.gh-menu')?.remove();
     const menu = document.createElement('div');
@@ -306,6 +350,18 @@ export function createGitHubPanel(container, {
       add.textContent = '+ New post';
       add.addEventListener('click', newPost);
       actions.append(add);
+
+      const branchButton = document.createElement('button');
+      branchButton.textContent = 'New branch';
+      branchButton.addEventListener('click', newBranch);
+      actions.append(branchButton);
+
+      if (selectedBranch !== defaultBranchOf(selectedRepo)) {
+        const prButton = document.createElement('button');
+        prButton.textContent = 'Create PR';
+        prButton.addEventListener('click', createPr);
+        actions.append(prButton);
+      }
     }
     container.append(actions);
 

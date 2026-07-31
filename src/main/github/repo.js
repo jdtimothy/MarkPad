@@ -112,4 +112,37 @@ async function fileSha(client, repo, branch, path) {
   }
 }
 
-module.exports = { listRepos, listBranches, listTree, readFile, encodePath, getHead, commit, fileSha };
+async function findPullRequest(client, repo, branch, owner) {
+  const prs = await client.request('GET', `/repos/${repo}/pulls`, {
+    query: { head: `${owner}:${branch}`, state: 'open' },
+  });
+  return prs.length ? { url: prs[0].html_url, number: prs[0].number } : null;
+}
+
+async function createPullRequest(client, { repo, head, base, title, body }) {
+  const pr = await client.request('POST', `/repos/${repo}/pulls`, {
+    body: { head, base, title, body },
+  });
+  return { url: pr.html_url, number: pr.number };
+}
+
+async function createBranch(client, repo, name, fromSha) {
+  await client.request('POST', `/repos/${repo}/git/refs`, {
+    body: { ref: `refs/heads/${name}`, sha: fromSha },
+  });
+  return { name };
+}
+
+module.exports = {
+  listRepos,
+  listBranches,
+  listTree,
+  readFile,
+  encodePath,
+  getHead,
+  commit,
+  fileSha,
+  findPullRequest,
+  createPullRequest,
+  createBranch,
+};

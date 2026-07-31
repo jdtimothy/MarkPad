@@ -123,6 +123,21 @@
     </form>
   </dialog>
 
+  <dialog id="pr-dialog">
+    <form method="dialog">
+      <label for="pr-title">Pull request title</label>
+      <input id="pr-title" type="text" />
+      <label for="pr-body">Description</label>
+      <textarea id="pr-body" rows="4"></textarea>
+      <label for="pr-base">Merge into</label>
+      <input id="pr-base" type="text" />
+      <div class="dialog-buttons">
+        <button value="cancel">Cancel</button>
+        <button value="ok" id="pr-ok">Create pull request</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="conflict-dialog">
     <h3>This file changed on GitHub</h3>
     <p id="conflict-detail">Someone else committed to this file since you opened it.</p>

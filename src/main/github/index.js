@@ -92,6 +92,12 @@ function registerGitHubHandlers() {
   ipcMain.handle('github:getHead', wrap((repo, branch) => repoApi.getHead(client, repo, branch)));
   ipcMain.handle('github:fileSha', wrap((repo, branch, path) => repoApi.fileSha(client, repo, branch, path)));
 
+  ipcMain.handle('github:findPullRequest', wrap((repo, branch) =>
+    repoApi.findPullRequest(client, repo, branch, account?.login)));
+  ipcMain.handle('github:createPullRequest', wrap((args) => repoApi.createPullRequest(client, args)));
+  ipcMain.handle('github:createBranch', wrap((repo, name, fromSha) =>
+    repoApi.createBranch(client, repo, name, fromSha)));
+
   // Committed images come back as data URLs so the preview never has to make
   // a cross-origin request, which keeps private repos working and the
   // renderer's CSP intact.

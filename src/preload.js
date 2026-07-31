@@ -27,5 +27,8 @@ contextBridge.exposeInMainWorld('markpad', {
     getHead: (repo, branch) => ipcRenderer.invoke('github:getHead', repo, branch),
     fileSha: (repo, branch, path) => ipcRenderer.invoke('github:fileSha', repo, branch, path),
     readAsset: (repo, branch, path) => ipcRenderer.invoke('github:readAsset', repo, branch, path),
+    findPullRequest: (repo, branch) => ipcRenderer.invoke('github:findPullRequest', repo, branch),
+    createPullRequest: (args) => ipcRenderer.invoke('github:createPullRequest', args),
+    createBranch: (repo, name, fromSha) => ipcRenderer.invoke('github:createBranch', repo, name, fromSha),
   },
 });
