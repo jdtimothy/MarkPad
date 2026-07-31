@@ -131,7 +131,8 @@ re-reads the file tree.
 
 `GET /git/trees/{branchSha}?recursive=1` returns the entire file list in one
 request. MarkPad filters to `.md`/`.markdown`, builds a nested tree in the
-renderer, and renders a collapsible sidebar. `Ctrl+B` toggles it.
+renderer, and renders a collapsible sidebar. `Ctrl+Shift+B` toggles it
+(`Ctrl+B` is already bound to Bold).
 
 If the trees response sets `truncated` (repositories beyond ~100k entries),
 the sidebar shows a notice that the listing is incomplete rather than silently
@@ -258,6 +259,7 @@ with no network access. New Vitest files in `tests/`:
 
 | File | Covers |
 |---|---|
+| `github-client.test.js` | HTTP wrapper: auth header, query building, and the status → error-code mapping table below |
 | `github-tree.test.js` | Flat path list → nested tree, markdown filtering, sort order, truncation flag |
 | `github-commit.test.js` | Blob/tree/commit/ref request sequence against a fake fetch; `sha: null` deletes; multi-file atomicity; `base_tree` wiring |
 | `github-auth.test.js` | Device-flow state machine: pending → `slow_down` backoff → success; expired and denied paths |
